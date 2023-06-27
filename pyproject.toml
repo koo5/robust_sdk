@@ -31,6 +31,7 @@ packages = [
 
 [tool.poetry.scripts]
 xml2rdf = 'robust_sdk.cli:xml2rdf'
+robust-sdk = 'robust_sdk.cli:cli'
 
 [tool.poetry.dependencies]
 python = ">=3.7.1, <4.0"
