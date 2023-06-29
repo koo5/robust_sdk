@@ -24,13 +24,13 @@ def xml2rdf(xml):
 	"""
 	Load the legacy IC XML file and produce robust IC RDF.
 	XML - path of XML file.
-	
+
 	"""
 
 	g = rdflib.Graph()
 	g.add((rdflib.URIRef('http://example.org/'), rdflib.RDF.type, rdflib.OWL.Ontology))
 	g.add((rdflib.BNode('account'), rdflib.RDF.type, rdflib.OWL.Class))
-	
+
 	x = xmltree.parse(xml).getroot()
 
 	if not (x.tag == 'reports'):
@@ -40,14 +40,14 @@ def xml2rdf(xml):
 		raise InputException('Not a valid IC XML file')
 	for child in r:
 		print(child.tag, child.attrib)
-	
+
 	bst= r.find('bankStatement')
 	if bst is None:
 		raise InputException('Not a valid IC XML file')
 	for child in bst:
 		print(child.tag, child.attrib)
 		if child.tag == 'accountDetails':
-			
+
 			accountNo = child.find('accountNo').text
 			accountName = child.find('accountName').text
 			bankID = child.find('bankID').text
@@ -55,7 +55,7 @@ def xml2rdf(xml):
 			print(accountNo, accountName, bankID, currency)
 			transactions = child.find('transactions')
 			for t in transactions:
-				
+
 				transdesc = t.find('transdesc')
 				if transdesc is not None:
 					transdesc = transdesc.text
@@ -72,14 +72,9 @@ def xml2rdf(xml):
 				unitType = t.find('unitType')
 				if unitType is not None:
 					unitType = unitType.text
-				
+
 				print(transdesc, transdate, debit, credit, unit, unitType)
-					
-				
-				
 
 
 if __name__ == '__main__':
 	cli()
-	
-	
