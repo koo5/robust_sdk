@@ -2,9 +2,18 @@ import click
 
 # https://docs.python.org/3/library/xml.etree.elementtree.html
 import xml.etree.ElementTree as xmltree
+
 import rdflib
+from poetry.mixology.term import Term
+from rdflib.term import Literal, BNode, Identifier
+from rdflib.collection import Collection
 
 
+
+
+def AssertList(g, seq: List[Node]):
+	c = Collection(g, None, seq)
+	return c.uri
 
 
 class InputException(Exception):
@@ -37,10 +46,11 @@ def xml2rdf(xml):
 
 
 	v1 = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/")
-	print(v1['request#xxxxx'])
+	#print(v1['request#xxxxx'])
 	R = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/request#")
+	E = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/excel#")
 	ER = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/excel_request#")
-	print(R['xxxxx'])
+	#print(R['xxxxx'])
 
 
 	#
@@ -50,11 +60,30 @@ def xml2rdf(xml):
 
 
 
-	rg.add(, u(_rg, ":request"), u(_rg, "excel:has_sheet_instances"), _rg.AssertList(all_request_sheets));
-				Assert(_g, u(":request"), u("l:client_version"), _g.CreateLiteralNode("3"));
+
+	# finally
+	# assert two facts about https://rdf.lodgeit.net.au/v1/excel_request#request in two different graphs
 
 
 
+
+
+	def add_sheet(Identifier sheet_type, str name, Identifier record):
+		sheet_instance = BNode()
+			rg.add(sheet_instance, E.sheet_instance_has_sheet_type, sheet_type)
+			rg.add(sheet_instance, E.sheet_instance_has_sheet_name, Literal(name))
+			rg.add(sheet_instance, E.sheet_instance_has_sheet_data, record)
+			all_request_sheets.Add(sheet_instance);
+
+
+
+
+
+	all_request_sheets = [
+		add_sheet(
+
+	rg.add(ER.request, E.has_sheet_instances, AssertList(rg, all_request_sheets)
+	g.add(ER.request, R.client_version, "3")
 
 
 
