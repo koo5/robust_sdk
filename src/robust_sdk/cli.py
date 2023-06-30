@@ -2,8 +2,9 @@ import click
 
 # https://docs.python.org/3/library/xml.etree.elementtree.html
 import xml.etree.ElementTree as xmltree
-
 import rdflib
+
+
 
 
 class InputException(Exception):
@@ -27,9 +28,35 @@ def xml2rdf(xml):
 
 	"""
 
+
+
+
+	#g.add((rdflib.URIRef('http://example.org/'), rdflib.RDF.type, rdflib.RDFS.Class))
+	#g.add((rdflib.BNode('account'), rdflib.RDF.type, rdflib.OWL.Class))
+
+
+
+	v1 = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/")
+	print(v1['request#xxxxx'])
+	R = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/request#")
+	ER = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/excel_request#")
+	print(R['xxxxx'])
+
+
+	#
 	g = rdflib.Graph()
-	g.add((rdflib.URIRef('http://example.org/'), rdflib.RDF.type, rdflib.OWL.Ontology))
-	g.add((rdflib.BNode('account'), rdflib.RDF.type, rdflib.OWL.Class))
+	#
+	rg = rdflib.Graph(R.request_graph)
+
+
+
+	rg.add(, u(_rg, ":request"), u(_rg, "excel:has_sheet_instances"), _rg.AssertList(all_request_sheets));
+				Assert(_g, u(":request"), u("l:client_version"), _g.CreateLiteralNode("3"));
+
+
+
+
+
 
 	x = xmltree.parse(xml).getroot()
 
@@ -74,6 +101,9 @@ def xml2rdf(xml):
 					unitType = unitType.text
 
 				print(transdesc, transdate, debit, credit, unit, unitType)
+
+
+
 
 
 if __name__ == '__main__':
