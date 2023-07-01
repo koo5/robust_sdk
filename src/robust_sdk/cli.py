@@ -1,4 +1,5 @@
 import click
+from pymaybe import maybe, maybe_list
 
 # https://docs.python.org/3/library/xml.etree.elementtree.html
 import xml.etree.ElementTree as xmltree
@@ -8,7 +9,7 @@ from poetry.mixology.term import Term
 from rdflib.term import Literal, BNode, Identifier
 from rdflib.collection import Collection
 
-
+from utils import AssertValue
 
 
 def AssertList(g, seq: List[Node]):
@@ -47,9 +48,10 @@ def xml2rdf(xml):
 
 	v1 = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/")
 	#print(v1['request#xxxxx'])
-	R = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/request#")
-	E = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/excel#")
-	ER = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/excel_request#")
+	R = 	rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/request#")
+	E = 	rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/excel#")
+	ER = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/excel_request#`")
+	BS = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/bank_statement#")
 	#print(R['xxxxx'])
 
 
@@ -68,19 +70,19 @@ def xml2rdf(xml):
 
 
 
-	def add_sheet(Identifier sheet_type, str name, Identifier record):
-		sheet_instance = BNode()
-			rg.add(sheet_instance, E.sheet_instance_has_sheet_type, sheet_type)
-			rg.add(sheet_instance, E.sheet_instance_has_sheet_name, Literal(name))
-			rg.add(sheet_instance, E.sheet_instance_has_sheet_data, record)
-			all_request_sheets.Add(sheet_instance);
+def add_sheet(Identifier sheet_type, str name, Identifier record):
+	sheet_instance = BNode()
+	rg.add(sheet_instance, E.sheet_instance_has_sheet_type, sheet_type)
+	rg.add(sheet_instance, E.sheet_instance_has_sheet_name, Literal(name))
+	rg.add(sheet_instance, E.sheet_instance_has_sheet_data, record)
+	all_request_sheets.Add(sheet_instance);
 
 
 
+def xxx():
 
+	all_request_sheets = []
 
-	all_request_sheets = [
-		add_sheet(
 
 	rg.add(ER.request, E.has_sheet_instances, AssertList(rg, all_request_sheets)
 	g.add(ER.request, R.client_version, "3")
@@ -97,39 +99,59 @@ def xml2rdf(xml):
 	for child in r:
 		print(child.tag, child.attrib)
 
+
+
 	bst= r.find('bankStatement')
 	if bst is None:
 		raise InputException('Not a valid IC XML file')
-	for child in bst:
-		print(child.tag, child.attrib)
-		if child.tag == 'accountDetails':
 
-			accountNo = child.find('accountNo').text
-			accountName = child.find('accountName').text
-			bankID = child.find('bankID').text
-			currency = child.find('currency').text
-			print(accountNo, accountName, bankID, currency)
-			transactions = child.find('transactions')
-			for t in transactions:
 
-				transdesc = t.find('transdesc')
-				if transdesc is not None:
-					transdesc = transdesc.text
+
+	for accd in bst.find("accountDetails"):
+
+		sheets += add_sheet()
+
+
+		accountNo = child.find('accountNo').text
+		accountName = child.find('accountName').text
+		bankID = child.find('bankID').text
+		currency = child.find('currency').text
+		print(accountNo, accountName, bankID, currency)
+
+		bs = BNode()
+		g.add(bs, RDF.type, BS.bank_statement)
+		g.add(bs, BS.account_currency, AssertValue(g, currency))
+		g.add(bs, BS.account_name, AssertValue(g, accountName))
+		g.add(bs, BS.account_number, AssertValue(g, accountNo))
+		g.add(bs, BS.bank_id, AssertValue(g, bankID))
+		g.add(bs, BS.items _:autos1134;
+                excel:template ic:bank_statement.
+
+
+
+
+
+			xml_transactions = child.find('transactions')
+			for t in xml_transactions:
+
+				transdesc = maybe(t.find('transdesc')).text
 				transdate = t.find('transdate').text
-				debit = t.find('debit')
-				if debit is not None:
-					debit = debit.text
-				credit = t.find('credit')
-				if credit is not None:
-					credit = credit.text
-				unit = t.find('unit')
-				if unit is not None:
-					unit = unit.text
-				unitType = t.find('unitType')
-				if unitType is not None:
-					unitType = unitType.text
+				debit = maybe(t.find('debit')).text
+				credit = maybe(t.find('credit')).text
+				unit = maybe(t.find('unit')).text
+				unitType = maybe(t.find('unitType')).text
 
 				print(transdesc, transdate, debit, credit, unit, unitType)
+
+				# add transaction to RDF graph
+				tx = BNode()
+				g.add(tx, R.transaction_has_description, Literal(transdesc))
+				g.add(tx, R.transaction_has_date, Literal(transdate))
+				g.add(tx, R.transaction_has_debit, Literal(debit))
+				g.add(tx, R.transaction_has_credit, Literal(credit))
+				g.add(tx, R.transaction_has_unit, Literal(unit))
+				g.add(tx, R.transaction_has_unit_type, Literal(unitType))
+
 
 
 
