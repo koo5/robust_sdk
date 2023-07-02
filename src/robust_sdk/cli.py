@@ -85,7 +85,8 @@ def xml2rdf(xml):
 
 
 
-	for accd in bst.find("accountDetails"):
+	for accd in bst.findall("accountDetails"):
+		print(accd)
 		xml_transactions = accd.find('transactions')
 		rdf_transactions = []
 		for t in xml_transactions:
