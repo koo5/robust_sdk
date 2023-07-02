@@ -19,7 +19,8 @@ class InputException(Exception):
 
 
 
-v1 = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/")
+V1 = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/")
+IC_UI = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/calcs/ic/ui#")
 #print(v1['request#xxxxx'])
 R = 	rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/request#")
 E = 	rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/excel#")
@@ -71,10 +72,6 @@ def xml2rdf(xml):
 	# finally
 	# assert two facts about https://rdf.lodgeit.net.au/v1/excel_request#request in two different graphs, g and rg
 
-
-
-	rg.add(ER.request, E.has_sheet_instances, AssertList(rg, all_request_sheets)
-	g.add(ER.request, R.client_version, "3")
 
 
 
@@ -132,10 +129,13 @@ def xml2rdf(xml):
 		g.add(bs, BS.account_name, AssertValue(g, accountName))
 		g.add(bs, BS.account_number, AssertValue(g, accountNo))
 		g.add(bs, BS.bank_id, AssertValue(g, bankID))
-		g.add(bs, BS.items, AssertListValue(g, txs))
+		g.add(bs, BS.items, AssertListValue(g, rdf_transactions))
 
-		sheets += add_sheet()
+		add_sheet(IC_UI.bank_statement_sheet, accountName, bs)
 
+
+	rg.add(ER.request, E.has_sheet_instances, AssertList(rg, all_request_sheets)
+	g.add(ER.request, R.client_version, "3")
 
 
 
