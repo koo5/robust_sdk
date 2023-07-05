@@ -40,7 +40,7 @@ rg = rdflib.Graph(identifier = R.request_graph)
 all_request_sheets = []
 
 def add_sheet(sheet_type: Identifier, name: str, record: Identifier):
-	sheet_instance = BNode('sheet_instance')
+	sheet_instance = BNode()#'sheet_instance')
 	rg.add((sheet_instance, E.sheet_instance_has_sheet_type, sheet_type))
 	rg.add((sheet_instance, E.sheet_instance_has_sheet_name, Literal(name)))
 	rg.add((sheet_instance, E.sheet_instance_has_sheet_data, record))
@@ -100,7 +100,7 @@ def xml2rdf(xml):
 			print(transdesc, transdate, debit, credit, unit, unitType)
 
 			# add transaction to RDF graph
-			tx = BNode('tx')
+			tx = BNode()#'tx')
 			rdf_transactions.append(tx)
 			g.add((tx, R.transaction_has_description, Literal(transdesc)))
 			g.add((tx, R.transaction_has_date, Literal(transdate)))
@@ -116,12 +116,12 @@ def xml2rdf(xml):
 		currency = accd.find('currency').text
 		print(accountNo, accountName, bankID, currency)
 
-		bs = BNode('bank_statement')
+		bs = BNode()#'bank_statement')
 		g.add((bs, RDF.type, BS.bank_statement))
-		g.add((bs, BS.account_currency, AssertValue(g, currency)))
-		g.add((bs, BS.account_name, AssertValue(g, accountName)))
-		g.add((bs, BS.account_number, AssertValue(g, accountNo)))
-		g.add((bs, BS.bank_id, AssertValue(g, bankID)))
+		g.add((bs, BS.account_currency, AssertValueLiteral(g, currency)))
+		g.add((bs, BS.account_name, AssertValueLiteral(g, accountName)))
+		g.add((bs, BS.account_number, AssertValueLiteral(g, accountNo)))
+		g.add((bs, BS.bank_id, AssertValueLiteral(g, bankID)))
 		g.add((bs, BS.items, AssertListValue(g, rdf_transactions)))
 
 		add_sheet(IC_UI.bank_statement_sheet, accountName, bs)

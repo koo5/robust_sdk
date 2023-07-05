@@ -5,6 +5,11 @@ from rdflib.term import Literal, BNode, Identifier
 
 def AssertValue(g: Graph, value: any):
 	v = BNode()
+	g.add((v, RDF.value, value))
+	return v
+
+def AssertValueLiteral(g: Graph, value: any):
+	v = BNode()
 	g.add((v, RDF.value, Literal(value)))
 	return v
 
