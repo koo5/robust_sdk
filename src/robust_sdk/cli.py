@@ -9,6 +9,8 @@ from poetry.mixology.term import Term
 from rdflib.term import Literal, BNode, Identifier
 from rdflib.collection import Collection
 
+from datetime import datetime
+
 from utils import *
 
 
@@ -32,7 +34,7 @@ BS = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/bank_statement#")
 
 
 #
-g = rdflib.Graph()
+SRg = rdflib.Graph()
 #
 rg = rdflib.Graph(identifier = R.request_graph)
 
@@ -46,11 +48,12 @@ def add_sheet(sheet_type: Identifier, name: str, record: Identifier):
 	rg.add((sheet_instance, E.sheet_instance_has_sheet_data, record))
 	all_request_sheets.append(sheet_instance)
 
+def date_literal(date_str: str):
+	return Literal(datetime.strptime(date_str, '%y-%m-%d')
+
 
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
-
-
 @click.group(context_settings=CONTEXT_SETTINGS)
 @click.option('--debug/--no-debug', default=False)
 def cli(debug):
@@ -74,9 +77,32 @@ def xml2rdf(xml):
 	r = x[0]
 	if not (r.tag == 'balanceSheetRequest'):
 		raise InputException('Not a valid IC XML file')
-	for child in r:
-		print(child.tag, child.attrib)
+	#for child in r:
+	#	print(child.tag, child.attrib)
+	AssertValue(date_literal(r.find('startDate').text))
+	AssertValue(date_literal(r.find('endDate').text))
 
+
+	report_details = BNode()#'bank_statement')
+	g.add((report_details, RDF.type, BS.report_details))
+
+	g.add((report_details, IC.cost_or_market , AssertValue(g, IC.cost)))
+	g.add((report_details, IC.currency , AssertValueLiteral(g, r.find('reportCurrency').text)))
+
+	add_sheet(IC_UI.report_details_sheet, 'report_details', report_details)
+
+
+                 ic:cost_or_market _:autos46735;
+                 ic:currency _:autos46734;
+                 ic:from _:autos46732;
+                 ic:pricing_method _:autos46736;
+                 ic:to _:autos46733;
+                 ic_ui:account_taxonomies _:autos46746;
+
+
+
+
+	defaultCurrency = r.find('defaultCurrency').text
 
 
 	bst= r.find('bankStatement')
