@@ -22,19 +22,18 @@ class InputException(Exception):
 
 
 V1 = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/")
-IC_UI = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/calcs/ic/ui#")
-#print(v1['request#xxxxx'])
 R = 	rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/request#")
 E = 	rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/excel#")
 ER = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/excel_request#")
 BS = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/bank_statement#")
-#print(R['xxxxx'])
+IC = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/calcs/ic#")
+IC_UI = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/calcs/ic/ui#")
 
 
 
 
 #
-SRg = rdflib.Graph()
+g = rdflib.Graph()
 #
 rg = rdflib.Graph(identifier = R.request_graph)
 
@@ -86,18 +85,23 @@ def xml2rdf(xml):
 	report_details = BNode()#'bank_statement')
 	g.add((report_details, RDF.type, BS.report_details))
 
-	g.add((report_details, IC.cost_or_market , AssertValue(g, IC.cost)))
-	g.add((report_details, IC.currency , AssertValueLiteral(g, r.find('reportCurrency').text)))
+	g.add((report_details, IC.cost_or_market,			 AssertValue(g, IC.cost)))
+	g.add((report_details, IC.currency,					 AssertLiteralValue(g, r.find('reportCurrency').text)))
+	g.add((report_details, IC['from'],					 AssertValue(g, date_literal(r.find('startDate').text))))
+	g.add((report_details, IC['to'],						 AssertValue(g, date_literal(r.find('endDate').text))))
+	g.add((report_details, IC.pricing_method,			 AssertValue(g, IC.lifo)))
 
+	taxonomy1 = BNode(); g.add((taxonomy1, V1['account_taxonomies#url'],  V1['account_taxonomies#base']))
+	taxonomy2 = BNode(); g.add((taxonomy2, V1['account_taxonomies#url'],  V1['account_taxonomies#investments']))
+	#taxonomy3 = BNode(); g.add((taxonomy3, V1['account_taxonomies#url'],  V1['account_taxonomies#livestock']))
+	account_taxonomies = [
+		AssertValue(g, taxonomy1),
+		AssertValue(g, taxonomy2),
+		#AssertValue(g, taxonomy3)
+	]
+	g.add((report_details, IC_UI.account_taxonomies,		 AssertListValue(g, account_taxonomies)))
 	add_sheet(IC_UI.report_details_sheet, 'report_details', report_details)
 
-
-                 ic:cost_or_market _:autos46735;
-                 ic:currency _:autos46734;
-                 ic:from _:autos46732;
-                 ic:pricing_method _:autos46736;
-                 ic:to _:autos46733;
-                 ic_ui:account_taxonomies _:autos46746;
 
 
 
@@ -144,10 +148,10 @@ def xml2rdf(xml):
 
 		bs = BNode()#'bank_statement')
 		g.add((bs, RDF.type, BS.bank_statement))
-		g.add((bs, BS.account_currency, AssertValueLiteral(g, currency)))
-		g.add((bs, BS.account_name, AssertValueLiteral(g, accountName)))
-		g.add((bs, BS.account_number, AssertValueLiteral(g, accountNo)))
-		g.add((bs, BS.bank_id, AssertValueLiteral(g, bankID)))
+		g.add((bs, BS.account_currency, AssertLiteralValue(g, currency)))
+		g.add((bs, BS.account_name, AssertLiteralValue(g, accountName)))
+		g.add((bs, BS.account_number, AssertLiteralValue(g, accountNo)))
+		g.add((bs, BS.bank_id, AssertLiteralValue(g, bankID)))
 		g.add((bs, BS.items, AssertListValue(g, rdf_transactions)))
 
 		add_sheet(IC_UI.bank_statement_sheet, accountName, bs)
