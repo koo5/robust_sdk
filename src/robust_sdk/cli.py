@@ -29,6 +29,7 @@ BS = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/bank_statement#")
 IC = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/calcs/ic#")
 IC_UI = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/calcs/ic/ui#")
 AV = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/action_verbs#")
+AV = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/unit_values#")
 
 
 
@@ -92,14 +93,19 @@ def xml2rdf(xml):
 	print()
 
 
-def add_report_details_sheet(r)
+reportCurrency = None
+endDate = None
+
+def add_report_details_sheet(r):
+	global endDate
 	report_details = BNode()#'bank_statement')
 	g.add((report_details, RDF.type, BS.report_details))
 
 	g.add((report_details, IC.cost_or_market,			 AssertValue(g, IC.cost)))
-	g.add((report_details, IC.currency,					 AssertLiteralValue(g, r.find('reportCurrency').text)))
+	g.add((report_details, IC.currency,				 AssertLiteralValue(g, r.find('reportCurrency').find('unitType').text)))
 	g.add((report_details, IC['from'],					 AssertValue(g, date_literal(r.find('startDate').text))))
-	g.add((report_details, IC['to'],						 AssertValue(g, date_literal(r.find('endDate').text))))
+	endDate = r.find('endDate').text
+	g.add((report_details, IC['to'],						 AssertValue(g, date_literal(endDate))))
 	g.add((report_details, IC.pricing_method,			 AssertValue(g, IC.lifo)))
 
 	taxonomy1 = BNode(); g.add((taxonomy1, V1['account_taxonomies#url'],  V1['account_taxonomies#base']))
@@ -144,7 +150,6 @@ def add_bank_statement_sheets(r):
 			g.add((tx, R.transaction_has_unit, Literal(unit)))
 			g.add((tx, R.transaction_has_unit_type, Literal(unitType)))
 
-		fff =child.find('accountNo')
 		accountNo = accd.find('accountNo').text
 		accountName = accd.find('accountName').text
 		bankID = accd.find('bankID').text
@@ -162,9 +167,36 @@ def add_bank_statement_sheets(r):
 		add_sheet(IC_UI.bank_statement_sheet, accountName, bs)
 
 def 	add_unit_values_sheet(xml_request):
-	#add_sheet(IC_UI.bank_statement_sheet, accountName, bs)
+	unit_values = []
+	for xml_unit_value in xml_request.find('unitValues').findall('unitValue'):
+		v = BNode()#'unit_value')
+		unit_values.append(v)
+		unitType = xml_unit_value.find('unitType').text
+		unitValue = xml_unit_value.find('unitValue').text
+		unitValueDate = xml_unit_value.find('unitValueDate').text
+		if unitValueDate == '':
+			unitValueDate = endDate
+		unitValueCurrency = xml_unit_value.find('unitValueCurrency').text
+		if unitValueCurrency == '':
+			unitValueCurrency = reportCurrency
+		print(unitType, unitValue, unitValueDate)
 
-	pass
+		g.add((v, UV.name, unitType))
+		g.add((v, UV.value, AssertLiteralValue(g, unitValue)))
+		g.add((v, UV.date, AssertValue(g, date_literal(unitValueDate))))
+		g.add((v, UV.currency, AssertLiteralValue(g, unitValueCurrency)))
+
+
+
+
+		g.add((v, RDF.type, IC.unit_value))
+
+
+
+	add_sheet(IC_UI.unit_values_sheet, 'unit_values', AssertListValue(g, unit_values))
+
+
+
 
 def add_action_verbs_sheet(xml_request):
 	action_verbs = []
