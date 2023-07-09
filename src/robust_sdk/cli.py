@@ -29,7 +29,7 @@ BS = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/bank_statement#")
 IC = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/calcs/ic#")
 IC_UI = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/calcs/ic/ui#")
 AV = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/action_verbs#")
-AV = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/unit_values#")
+UV = rdflib.Namespace("'https://rdf.lodgeit.net.au/v1/unit_values#")
 
 
 
@@ -101,8 +101,8 @@ def add_report_details_sheet(r):
 	report_details = BNode()#'bank_statement')
 	g.add((report_details, RDF.type, BS.report_details))
 
-	g.add((report_details, IC.cost_or_market,			 AssertValue(g, IC.cost)))
-	g.add((report_details, IC.currency,				 AssertLiteralValue(g, r.find('reportCurrency').find('unitType').text)))
+	g.add((report_details, IC.cost_or_market,			 AssertValue(g, IC.market)))
+	g.add((report_details, IC.currency,					 AssertLiteralValue(g, r.find('reportCurrency').find('unitType').text)))
 	g.add((report_details, IC['from'],					 AssertValue(g, date_literal(r.find('startDate').text))))
 	endDate = r.find('endDate').text
 	g.add((report_details, IC['to'],						 AssertValue(g, date_literal(endDate))))
@@ -173,15 +173,15 @@ def 	add_unit_values_sheet(xml_request):
 		unit_values.append(v)
 		unitType = xml_unit_value.find('unitType').text
 		unitValue = xml_unit_value.find('unitValue').text
-		unitValueDate = xml_unit_value.find('unitValueDate').text
-		if unitValueDate == '':
+		unitValueDate = maybe(xml_unit_value.find('unitValueDate')).text
+		if unitValueDate in ['', None]:
 			unitValueDate = endDate
 		unitValueCurrency = xml_unit_value.find('unitValueCurrency').text
 		if unitValueCurrency == '':
 			unitValueCurrency = reportCurrency
 		print(unitType, unitValue, unitValueDate)
 
-		g.add((v, UV.name, unitType))
+		g.add((v, UV.name, AssertLiteralValue(g, unitType)))
 		g.add((v, UV.value, AssertLiteralValue(g, unitValue)))
 		g.add((v, UV.date, AssertValue(g, date_literal(unitValueDate))))
 		g.add((v, UV.currency, AssertLiteralValue(g, unitValueCurrency)))
