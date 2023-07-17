@@ -96,6 +96,9 @@ def xml2rdf(xml):
 reportCurrency = None
 endDate = None
 
+
+
+
 def add_report_details_sheet(r):
 	global endDate
 	report_details = BNode()#'bank_statement')
@@ -118,6 +121,8 @@ def add_report_details_sheet(r):
 	]
 	g.add((report_details, IC_UI.account_taxonomies,		 AssertListValue(g, account_taxonomies)))
 	add_sheet(IC_UI.report_details_sheet, 'report_details', report_details)
+
+
 
 
 def add_bank_statement_sheets(r):
@@ -166,7 +171,10 @@ def add_bank_statement_sheets(r):
 
 		add_sheet(IC_UI.bank_statement_sheet, accountName, bs)
 
-def 	add_unit_values_sheet(xml_request):
+
+
+
+def add_unit_values_sheet(xml_request):
 	unit_values = []
 	for xml_unit_value in xml_request.find('unitValues').findall('unitValue'):
 		v = BNode()#'unit_value')
@@ -181,17 +189,11 @@ def 	add_unit_values_sheet(xml_request):
 			unitValueCurrency = reportCurrency
 		print(unitType, unitValue, unitValueDate)
 
+		#g.add((v, RDF.type, IC.unit_value))
 		g.add((v, UV.name, AssertLiteralValue(g, unitType)))
 		g.add((v, UV.value, AssertLiteralValue(g, unitValue)))
 		g.add((v, UV.date, AssertValue(g, date_literal(unitValueDate))))
 		g.add((v, UV.currency, AssertLiteralValue(g, unitValueCurrency)))
-
-
-
-
-		g.add((v, RDF.type, IC.unit_value))
-
-
 
 	add_sheet(IC_UI.unit_values_sheet, 'unit_values', AssertListValue(g, unit_values))
 
