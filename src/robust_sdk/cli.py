@@ -1,6 +1,6 @@
 import functools
 import click
-from .xml2rdf import xml2rdf
+from .xml2rdf import Xml2rdf
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 @click.group(context_settings=CONTEXT_SETTINGS)
@@ -12,7 +12,7 @@ def cli(debug):
 @click.argument('xml', type=click.File('r'))
 @functools.wraps(xml2rdf)
 def xml2rdf(xml, destdir='.'):
-	return xml2rdf(xml, destdir)
+	return Xml2rdf().xml2rdf(xml, destdir)
 
 
 if __name__ == '__main__':
