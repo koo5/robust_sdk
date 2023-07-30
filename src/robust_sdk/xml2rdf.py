@@ -167,14 +167,16 @@ class Xml2rdf():
 			action_verbs.append(v)
 			id = xml_verb.find('id').text
 			exchangeAccount = xml_verb.find('exchangeAccount').text
-			tradingAccount = xml_verb.find('tradingAccount').text
-			description = xml_verb.find('description').text
+			tradingAccount = xml_verb.findtext('tradingAccount')
+			description = xml_verb.findtext('description')
 
 			self.g.add((v, RDF.type, IC.action_verb))
 			self.g.add((v, AV.name, AssertLiteralValue(self.g, id)))
-			self.g.add((v, AV.description, AssertLiteralValue(self.g, description)))
+			if description not in [None, '']:
+				self.g.add((v, AV.description, AssertLiteralValue(self.g, description)))
 			self.g.add((v, AV.exchanged_account, AssertLiteralValue(self.g, exchangeAccount)))
-			self.g.add((v, AV.trading_account, AssertLiteralValue(self.g, tradingAccount)))
+			if tradingAccount not in [None, '']:
+				self.g.add((v, AV.trading_account, AssertLiteralValue(self.g, tradingAccount)))
 
 
 		self.add_sheet(IC_UI.action_verbs_sheet, 'action_verbs', AssertListValue(self.g, action_verbs))
