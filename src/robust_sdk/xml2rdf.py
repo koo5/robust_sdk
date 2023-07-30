@@ -1,7 +1,7 @@
 # https://docs.python.org/3/library/xml.etree.elementtree.html
+import logging
 import pathlib
 import xml.etree.ElementTree as xmltree
-from pymaybe import maybe
 import rdflib
 from rdflib.term import Literal, BNode, Identifier
 from .utils import *
@@ -24,11 +24,14 @@ class Xml2rdf():
 
 		self.g = rdflib.Graph()
 		self.rg = rdflib.Graph(identifier = R.request_graph)
-		self.reportCurrency = None
-		self.endDate = None
 		self.all_request_sheets = []
 
-		self.defaultCurrency = self.xml_request.find('defaultCurrency').text
+		self.endDate = self.xml_request.find('endDate').text
+		self.startDate = self.xml_request.find('startDate').text
+
+		self.reportCurrency = self.xml_request.find('reportCurrency/unitType').text
+		#logging.getLogger('dataDebug').debug(self.defaultCurrency.__repr__())
+		#print(self.defaultCurrency)
 
 		self.add_report_details_sheet()
 		self.add_bank_statement_sheets()
@@ -58,9 +61,9 @@ class Xml2rdf():
 
 		self.g.add((report_details, IC.cost_or_market,		AssertValue(self.g, IC.market)))
 		self.g.add((report_details, IC.currency,			AssertLiteralValue(self.g, self.xml_request.find('reportCurrency').find('unitType').text)))
-		self.g.add((report_details, IC['from'],				AssertValue(self.g, date_literal(self.xml_request.find('startDate').text))))
-		self.g.add((report_details, IC['to'],				AssertValue(self.g, date_literal(self.xml_request.find('endDate').text))))
-		self.g.add((report_details, IC.pricing_method,		AssertValue(self.g, IC.lifo)))
+		self.g.add((report_details, IC['from'],				AssertValue(self.g, date_literal(self.startDate))))
+		self.g.add((report_details, IC['to'],				AssertValue(self.g, date_literal(self.endDate))))
+		self.g.add((report_details, IC.pricing_method,	AssertValue(self.g, IC.lifo)))
 
 		taxonomy1 = BNode(); self.g.add((taxonomy1, V1['account_taxonomies#url'],  V1['account_taxonomies#base']))
 		taxonomy2 = BNode(); self.g.add((taxonomy2, V1['account_taxonomies#url'],  V1['account_taxonomies#investments']))
@@ -87,14 +90,14 @@ class Xml2rdf():
 			rdf_transactions = []
 			for t in xml_transactions:
 
-				transdesc = maybe(t.find('transdesc')).text
-				transdate = t.find('transdate').text
-				debit = maybe(t.find('debit')).text
-				credit = maybe(t.find('credit')).text
-				unit = maybe(t.find('unit')).text
-				unitType = maybe(t.find('unitType')).text
+				transdesc = t.findtext('transdesc')
+				transdate = t.findtext('transdate')
+				debit = t.findtext('debit')
+				credit = t.findtext('credit')
+				unit = t.findtext('unit')
+				unitType = t.findtext('unitType')
 
-				print(transdesc, transdate, debit, credit, unit, unitType)
+				#print(transdesc, transdate, debit, credit, unit, unitType)
 
 				# add transaction to RDF graph
 				tx = BNode()#'tx')
@@ -110,7 +113,7 @@ class Xml2rdf():
 			accountName = accd.find('accountName').text
 			bankID = accd.find('bankID').text
 			currency = accd.find('currency').text
-			print(accountNo, accountName, bankID, currency)
+			#print(accountNo, accountName, bankID, currency)
 
 			bs = BNode()#'bank_statement')
 			self.g.add((bs, RDF.type, BS.bank_statement))
@@ -132,13 +135,18 @@ class Xml2rdf():
 			unit_values.append(v)
 			unitType = xml_unit_value.find('unitType').text
 			unitValue = xml_unit_value.find('unitValue').text
-			unitValueDate = maybe(xml_unit_value.find('unitValueDate')).text
+			unitValueDate = xml_unit_value.findtext('unitValueDate')
 			if unitValueDate in ['', None]:
 				unitValueDate = self.endDate
-			unitValueCurrency = xml_unit_value.find('unitValueCurrency').text
-			if unitValueCurrency == '':
+			elif unitValueDate == 'opening':
+				unitValueDate = self.startDate
+			elif unitValueDate == 'closing':
+				unitValueDate = self.endDate
+																						#todo might just as well pass all dates through as text?
+			unitValueCurrency = xml_unit_value.findtext('unitValueCurrency')
+			if unitValueCurrency in ['', None]:
 				unitValueCurrency = self.reportCurrency
-			print(unitType, unitValue, unitValueDate)
+			#print(unitType, unitValue, unitValueDate)
 
 			self.g.add((v, RDF.type, IC.unit_value))
 			self.g.add((v, UV.name, AssertLiteralValue(self.g, unitType)))
