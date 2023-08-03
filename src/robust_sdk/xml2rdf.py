@@ -37,6 +37,9 @@ class Xml2rdf():
 		self.add_bank_statement_sheets()
 		self.add_unit_values_sheet()
 		self.add_action_verbs_sheet()
+		self.add_unit_types_sheet()
+
+
 
 		self.rg.add((ER.request, E.has_sheet_instances, AssertList(self.rg, self.all_request_sheets)))
 		self.g.add((ER.request, R.client_version, Literal("3")))
@@ -201,6 +204,9 @@ class Xml2rdf():
 #		return AssertValue(g, AssertList(g, items))
 	def assert_list_value(self, items: list[Identifier]):
 		return self.assert_value(AssertList(self.g, items))
+
+	def add_unit_types_sheet(self):
+		self.add_sheet(IC_UI.unit_types_sheet, 'unit_types', self.assert_list_value([]))
 
 
 
