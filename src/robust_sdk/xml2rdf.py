@@ -24,7 +24,9 @@ class Xml2rdf():
 
 		self.g = rdflib.Graph(identifier = R.data_graph)
 		self.rg = rdflib.Graph(identifier = R.request_graph)
+		
 		self.all_request_sheets = []
+		self.unit_names = set()
 
 		self.endDate = self.xml_request.find('endDate').text
 		self.startDate = self.xml_request.find('startDate').text
@@ -154,6 +156,8 @@ class Xml2rdf():
 			self.g.add((v, UV.value, self.assert_value(unitValue)))
 			self.g.add((v, UV.date, self.assert_value(date_literal(unitValueDate))))
 			self.g.add((v, UV.currency, self.assert_value(unitValueCurrency)))
+			
+			self.unit_names.add(unitType)
 
 		self.add_sheet(IC.unit_valueses, 'unit_values', self.assert_list_value(unit_values))
 
@@ -200,13 +204,18 @@ class Xml2rdf():
 		self.rg.add((v, E.sheet_name, Literal('unknown')))
 		return v
 
-#	def AssertListValue(g: Graph, items: list[Identifier]):
-#		return AssertValue(g, AssertList(g, items))
 	def assert_list_value(self, items: list[Identifier]):
 		return self.assert_value(AssertList(self.g, items))
 
 	def add_unit_types_sheet(self):
-		self.add_sheet(IC_UI.unit_types_sheet, 'unit_types', self.assert_list_value([]))
+		types = []
+		for name in self.unit_names:
+			u = BNode()
+			self.g.add((u, IC.unit_type_name, self.assert_value(name)))
+			self.g.add((u, IC.unit_type_category, self.assert_value('Financial_Investments')))
+			types.append(u)
+
+		self.add_sheet(IC_UI.unit_types_sheet, 'unit_types', self.assert_list_value(types))
 
 
 
