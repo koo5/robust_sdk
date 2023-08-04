@@ -67,9 +67,9 @@ class Xml2rdf():
 		self.g.add((report_details, IC['from'],		self.assert_value(date_literal(self.startDate))))
 		self.g.add((report_details, IC['to'],		self.assert_value(date_literal(self.endDate))))
 		self.g.add((report_details, IC.pricing_method,	self.assert_value(IC.lifo)))
-
+		
 		taxonomy1 = BNode(); self.g.add((taxonomy1, V1['account_taxonomies#url'],  self.assert_value(V1['account_taxonomies#base'])))
-		taxonomy2 = BNode(); self.g.add((taxonomy2, V1['account_taxonomies#url'],  self.assert_value(V1['account_taxonomies#investments'])))
+		taxonomy2 = BNode(); self.g.add((taxonomy2, V1['account_taxonomies#url'],  self.assert_value(V1['account_taxonomies#investments__legacy'])))
 		#taxonomy3 = BNode(); g.add((taxonomy3, V1['account_taxonomies#url'],  V1['account_taxonomies#livestock']))
 		account_taxonomies = [
 			taxonomy1,
