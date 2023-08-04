@@ -3,8 +3,11 @@ robust RDF prefixes and urls are currently maintained in parallel in RdfTemplate
 This will possibly be a third place ;)
 
 
+`pip install -e .`
 
+`robust-sdk xml2rdf ../tests/endpoint_tests/ledger/BankDemo2_xlsx-LodgeiT__July4/request.xml`
 
+(fish)``` eval (_ROBUST_SDK_COMPLETE=fish_source robust-sdk) ```
 
 
 
