@@ -1,13 +1,11 @@
-# https://docs.python.org/3/library/xml.etree.elementtree.html
 import logging
 import pathlib
 import xml.etree.ElementTree as xmltree
 import rdflib
 from rdflib.term import Literal, BNode, Identifier
+
 from .utils import *
 from .prefixes import *
-
-
 
 
 
@@ -41,8 +39,6 @@ class Xml2rdf():
 		self.add_action_verbs_sheet()
 		self.add_unit_types_sheet()
 
-
-
 		self.rg.add((ER.request, E.has_sheet_instances, AssertList(self.rg, self.all_request_sheets)))
 		self.g.add((ER.request, R.client_version, Literal("3")))
 
@@ -53,9 +49,7 @@ class Xml2rdf():
 		result_file = destdir / 'request.n3'
 		#merged_graph.serialize(result_file, format='trig')
 		merged_graph.serialize(result_file, format='n3')
-
 		return result_file
-
 
 
 	def add_report_details_sheet(self):
@@ -69,7 +63,8 @@ class Xml2rdf():
 		self.g.add((report_details, IC.pricing_method,	self.assert_value(IC.lifo)))
 		
 		taxonomy1 = BNode(); self.g.add((taxonomy1, V1['account_taxonomies#url'],  self.assert_value(V1['account_taxonomies#base'])))
-		taxonomy2 = BNode(); self.g.add((taxonomy2, V1['account_taxonomies#url'],  self.assert_value(V1['account_taxonomies#investments__legacy'])))
+		#taxonomy2 = BNode(); self.g.add((taxonomy2, V1['account_taxonomies#url'],  self.assert_value(V1['account_taxonomies#investments__legacy'])))
+		taxonomy2 = BNode(); self.g.add((taxonomy2, V1['account_taxonomies#url'],  self.assert_value(V1['account_taxonomies#investments'])))
 		#taxonomy3 = BNode(); g.add((taxonomy3, V1['account_taxonomies#url'],  V1['account_taxonomies#livestock']))
 		account_taxonomies = [
 			taxonomy1,
@@ -105,12 +100,12 @@ class Xml2rdf():
 				# add transaction to RDF graph
 				tx = BNode()#'tx')
 				rdf_transactions.append(tx)
-				self.g.add((tx, R.transaction_has_description, Literal(transdesc)))
-				self.g.add((tx, R.transaction_has_date, Literal(transdate)))
-				self.g.add((tx, R.transaction_has_debit, Literal(debit)))
-				self.g.add((tx, R.transaction_has_credit, Literal(credit)))
-				self.g.add((tx, R.transaction_has_unit, Literal(unit)))
-				self.g.add((tx, R.transaction_has_unit_type, Literal(unitType)))
+				self.g.add((tx, BS.transaction_description, self.assert_value(transdesc)))
+				self.g.add((tx, BS.bank_transaction_date, self.assert_value(date_literal(transdate))))
+				self.g.add((tx, BS.transaction_debit, self.assert_value(debit)))
+				self.g.add((tx, BS.transaction_credit, self.assert_value(credit)))
+				self.g.add((tx, BS.transaction_unit, self.assert_value(unit)))
+				self.g.add((tx, BS.transaction_unit_type, self.assert_value(unitType)))
 
 			accountNo = accd.find('accountNo').text
 			accountName = accd.find('accountName').text
@@ -126,7 +121,7 @@ class Xml2rdf():
 			self.g.add((bs, BS.bank_id, self.assert_value(bankID)))
 			self.g.add((bs, BS.items, self.assert_list_value(rdf_transactions)))
 
-			self.add_sheet(IC_UI.bank_statement_sheet, accountName, bs)
+			self.add_sheet(IC.bank_statement, accountName, bs)
 
 
 
@@ -188,6 +183,18 @@ class Xml2rdf():
 
 
 
+	def add_unit_types_sheet(self):
+		types = []
+		for name in self.unit_names:
+			u = BNode()
+			self.g.add((u, IC.unit_type_name, self.assert_value(name)))
+			self.g.add((u, IC.unit_type_category, self.assert_value('Financial_Investments')))
+			types.append(u)
+
+		self.add_sheet(IC_UI.unit_types_sheet, 'unit_types', self.assert_list_value(types))
+
+
+
 	def add_sheet(self, sheet_type: Identifier, name: str, record: Identifier):
 		sheet_instance = BNode()#'sheet_instance')
 		self.rg.add((sheet_instance, E.sheet_instance_has_sheet_type, sheet_type))
@@ -206,17 +213,6 @@ class Xml2rdf():
 
 	def assert_list_value(self, items: list[Identifier]):
 		return self.assert_value(AssertList(self.g, items))
-
-	def add_unit_types_sheet(self):
-		types = []
-		for name in self.unit_names:
-			u = BNode()
-			self.g.add((u, IC.unit_type_name, self.assert_value(name)))
-			self.g.add((u, IC.unit_type_category, self.assert_value('Financial_Investments')))
-			types.append(u)
-
-		self.add_sheet(IC_UI.unit_types_sheet, 'unit_types', self.assert_list_value(types))
-
 
 
 class InputException(Exception):
