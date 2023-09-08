@@ -16,9 +16,14 @@ class Xml2rdf():
 		Load the legacy IC XML file and produce robust IC RDF.
 		XML - path of XML file.
 		"""
-		self.xml_request = xmltree.parse(xml).getroot().find('balanceSheetRequest')
+		try:
+			self.xml_request = xmltree.parse(xml).getroot().find('balanceSheetRequest')
+		except xmltree.ParseError as e:
+			logging.getLogger(__name__).info(e)
+			return None
 		if self.xml_request is None:
-			raise InputException('Not a valid IC XML file')
+			logging.getLogger(__name__).info('Not a valid IC XML file')
+			return None
 
 		self.g = rdflib.Graph(identifier = R.data_graph)
 		self.rg = rdflib.Graph(identifier = R.request_graph)
