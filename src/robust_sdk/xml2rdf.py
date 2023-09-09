@@ -223,3 +223,16 @@ class Xml2rdf():
 class InputException(Exception):
 	pass
 
+
+# ---------------
+
+	# it's a crude heuristic that request_format == 'xml' implies that the response is immediate and xml, but it's true.
+	if request_format == 'xml':
+		should_500 = os.path.exists(os.path.abspath(P(self.test['suite']) / self.test['dir'] / '500'))
+
+		if resp.ok:
+
+
+		else:
+
+	else:
