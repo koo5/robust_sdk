@@ -8,7 +8,6 @@ from .utils import *
 from .prefixes import *
 
 
-
 class Xml2rdf():
 
 	def xml2rdf(self, xml, destdir: pathlib.Path):
