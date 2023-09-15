@@ -44,35 +44,45 @@ def compare_sheetsets(templates_fn, fn1, fn2):
 		walk_record(t, f1, template, data)
 
 def walk_record(templates, f1, template, data):
-	if template == 
 	print(f"record with template: {template}")
 	cardinality = one(templates.objects(template, E.cardinality))
 	if cardinality == E.multi:
 		items = list(Collection(f1, one(f1.objects(data, RDF.value))))
 		print(f"is multi with items {items}")
 		for idx,x in enumerate(items):
-			print(f"item {idx}:")
-			walk_item(templates, f1, template, x)
+			print(f"fields of item {idx}:")
+			walk_fields(templates, f1, template, x)
 	else:
 		print("single")
-		walk_item(templates, f1, template, data)
+		walk_fields(templates, f1, template, data)
 		
-def walk_item(templates, f1, template, data):
+def walk_fields(templates, f1, template, data):
 	fields = Collection(templates, one(templates.objects(template, E.fields)))
 	for field in fields:
 		field_property = one(templates.objects(field, E.property))
-		field_type = list(templates.objects(field, E.type))
-		if len(field_type) != 1:
-			field_type = one(templates.objects(field, E.template))
 		field_values = list(f1.objects(data, field_property))
-		print(f"field: {field_property} ({field_type}) {field_values}")
+		#print(f"record {data} has field: {field_property}")
+		print(f"field: {field_property}")
+
 		if len(field_values) == 1:
 			field_value = field_values[0]
-			walk_record(templates, f1, field_type, field_value)
+	
+			field_type = list(templates.objects(field, E.type))
+			if len(field_type) == 1:
+				visit_discrete_field(templates, f1, field, field_type, field_value)
+			else:
+				subrecord_template = one(templates.objects(field, E.template))
+				walk_record(templates, f1, subrecord_template, field_value)
 		elif len(field_values) == 0:
 			print("no value")
 		else:
-			raise ValueError(f"expected one or zero values, got {len(field_values)}")
+			raise ValueError(f"expected one or zero values, record {data} has field: {field_property} with unexpected number of values: {field_values}")
+
+
+def visit_discrete_field(templates, f1, field, field_type, field_value):
+	v = one(f1.objects(field_value, RDF.value))
+	print(f'has value: {v}')
+
 
 
 def one(generator):
@@ -84,3 +94,11 @@ def one(generator):
 if __name__ == '__main__':
 	compare_sheetsets()
 
+"""
+may wanna do 3 rounds, comparing by "server" templates, by fn1 templates, and by fn2 templates.
+
+
+
+
+
+"""
