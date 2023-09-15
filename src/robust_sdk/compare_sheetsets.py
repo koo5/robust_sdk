@@ -74,14 +74,48 @@ def walk_sheetset(t, f1, f2):
 		f1_template = one(f1.objects(f1_data, E.template))
 		f2_template = one(f2.objects(f2_data, E.template))
 		if f1_template != f2_template:
-			warn(f"sheetset item {idx} has different templates: {f1_template} vs {f2_template}")
-		
+			warn(f"sheetset {idx} root item has different templates: {f1_template} vs {f2_template}")
+
 		print(f"sheet: {f1_name} ({f1_type}) ({f1_template}):")
 		walk_record(t, f1, f2, f1_template, f1_data, f2_data)
+
+def check_record_template(template, data, f):
+	t = one(f.objects(data, E.template))
+	if template != t:
+		warn(f"record has different template than declared in parent structure: {template} vs {one(f.objects(data, E.template))}")
+
+def read_unknown_field_decls(f, record):
+	l = list(f.objects(record, E.has_unknown_fields))
+	if len(l) == 0:
+		return []
+	elif len(l) == 1:
+		for uri in list(Collection(f, l[0])):
+			yield uri, one(f.objects(uri, E.has_header_cell_value))
+
+	else:
+		raise ValueError(f"expected one or zero unknown field declarations, got {len(l)}")
+
+def check_unknown_field_decls(f1_unknown_field_decls, f2_unknown_field_decls):
+	# they technically don't have to have equal names, but they will
+	if len(f1_unknown_field_decls) != len(f2_unknown_field_decls):
+		warn(f"unequal number of unknown fields: {len(f1_unknown_field_decls)} vs {len(f2_unknown_field_decls)}")
+	
+	for idx, d in enumerate(f1_unknown_field_decls):
+		if len(f2_unknown_field_decls) <= idx:
+			warn(f"unknown field {idx} is missing from f2")
+			return
+		if d != f2_unknown_field_decls[idx]:
+			warn(f"unknown field {idx} has different names: {d} vs {f2_unknown_field_decls[idx]}")
 
 
 def walk_record(templates, f1, f2, template, f1_data, f2_data):
 	print(f"record with template: {template}")
+	check_record_template(template, f1_data, f1)
+	check_record_template(template, f2_data, f2)
+	f1_unknown_field_decls = list(read_unknown_field_decls(f1, f1_data))
+	f2_unknown_field_decls = list(read_unknown_field_decls(f2, f2_data))
+	check_unknown_field_decls(f1_unknown_field_decls, f2_unknown_field_decls)	
+
 	cardinality = one(templates.objects(template, E.cardinality))
 	if cardinality == E.multi:
 		items1 = list(Collection(f1, one(f1.objects(f1_data, RDF.value))))
@@ -95,42 +129,60 @@ def walk_record(templates, f1, f2, template, f1_data, f2_data):
 				return
 			print(f"fields of item {idx}:")
 			y = items2[idx]
-			walk_fields(templates, f1, f2, template, x, y)
+			walk_fields(templates, f1, f2, template, x, y, f1_unknown_field_decls, f2_unknown_field_decls)
 	else:
 		print("single")
-		walk_fields(templates, f1, f2, template, f1_data, f2_data)
+		walk_fields(templates, f1, f2, template, f1_data, f2_data, f1_unknown_field_decls, f2_unknown_field_decls)
 
 
-def walk_fields(templates, f1, f2, template, f1_data, f2_data):
+def walk_fields(templates, f1, f2, template, f1_data, f2_data, f1_unknown_field_decls, f2_unknown_field_decls):
 	fields = Collection(templates, one(templates.objects(template, E.fields)))
+
+	for idx, (f1_uf_prop,f1_uf_title) in enumerate(f1_unknown_field_decls):
+		print(f"field: {f1_uf_prop}")
+		f2_uf_prop = f2_unknown_field_decls[idx][0]
+		visit_field(templates, f1, f2, template, f1_data, f2_data, None, 'stringgg', f1_uf_prop, f2_uf_prop)
+
 	for field in fields:
 		field_property = one(templates.objects(field, E.property))
-		print(f"field: {field_property}")
+		visit_field(templates, f1, f2, template, f1_data, f2_data, field, None, field_property, field_property)
 
-		f1_field_values = list(f1.objects(f1_data, field_property))
-		f2_field_values = list(f2.objects(f2_data, field_property))
-		# print(f"record {data} has field: {field_property}")
+	
+def visit_field(templates, f1, f2, template, f1_data, f2_data, field, field_type, f1_field_property, f2_field_property):
+	print(f"field: {f1_field_property}")
 
-		if len(f1_field_values) != len(f2_field_values):
-			warn(f"unequal number of values: {len(f1_field_values)} vs {len(f2_field_values)}")
+	f1_field_values = list(f1.objects(f1_data, f1_field_property))
+	f2_field_values = list(f2.objects(f2_data, f2_field_property))
+	# print(f"record {data} has field: {field_property}")
 
-		if len(f1_field_values) == 1:
-			f1_field_value = f1_field_values[0]
-			f2_field_value = f2_field_values[0]
+	if len(f1_field_values) != len(f2_field_values):
+		warn(f"unequal number of values: {len(f1_field_values)} vs {len(f2_field_values)}")
+		warn(f"{f1_data} has {f1_field_property} values: {f1_field_values}")
+		warn(f"{f2_data} has {f2_field_property} values: {f2_field_values}")
+		return
 
-			field_type = list(templates.objects(field, E.type))
-			if len(field_type) == 1:
-				visit_discrete_field(templates, f1, f2, field, field_type, f1_field_value, f2_field_value)
-			else:
-				subrecord_template = one(templates.objects(field, E.template))
-				walk_record(templates, f1, f2, subrecord_template, f1_field_value, f2_field_value)
-		elif len(f1_field_values) == 0:
-			print("no value")
-			if len(f2_field_values) != 0:
-				warn(f"f2 record {f2_data} field: {field_property} has values: {f2_field_values}, while f1 has no values")
+	if len(f1_field_values) == 1:
+		f1_field_value = f1_field_values[0]
+		f2_field_value = f2_field_values[0]
+
+		if field_type is None:
+			field_types = list(templates.objects(field, E.type))
+			if len(field_types) == 1:
+				field_type = field_types[0]
+			elif len(field_types) > 1:
+				raise ValueError(f"expected one or zero field_type's")
+		if field_type is not None:
+			visit_discrete_field(templates, f1, f2, field, field_type, f1_field_value, f2_field_value)
 		else:
-			raise ValueError(
-				f"expected one or zero values, record {data} has field: {field_property} with unexpected number of values: {field_values}")
+			subrecord_template = one(templates.objects(field, E.template))
+			walk_record(templates, f1, f2, subrecord_template, f1_field_value, f2_field_value)
+	elif len(f1_field_values) == 0:
+		print("no value")
+		if len(f2_field_values) != 0:
+			warn(f"f2 record {f2_data} field: {f2_field_property} has values: {f2_field_values}, while f1 has no values")
+	else:
+		raise ValueError(
+			f"expected one or zero values, record {data} has field: {field_property} with unexpected number of values: {field_values}")
 
 
 def visit_discrete_field(templates, f1, f2, field, field_type, f1_field_value, f2_field_value):
