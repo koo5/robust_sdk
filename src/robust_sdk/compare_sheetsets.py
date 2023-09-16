@@ -34,7 +34,11 @@ def compare_sheetsets(templates_fn, fn1, fn2):
 	# print(list(f1.triples((None, None, None))))
 
 	for templatedef in [t, f1, f2]:
-		logger.info(f"using templatedef: {templatedef.identifier}")
+		m = f"using templatedef: {templatedef.identifier}"
+		logger.info(m)
+		if len(warnings) > 0:
+			logger.warning(m)
+
 		walk_sheetset(templatedef, f1, f2)
 
 	if len(warnings) > 0:
@@ -189,9 +193,23 @@ def visit_discrete_field(templates, f1, f2, field, field_type, f1_field_value, f
 	v1 = one(f1.objects(f1_field_value, RDF.value))
 	v2 = one(f2.objects(f2_field_value, RDF.value))
 	if v1 != v2:
+		#warn(f'{type(v1)}, {type(v2)}')
+		try:
+			if abs(v1.value - v2.value) < 0.0004:
+				return True
+		except:
+			pass
 		warn(f"field {field} has different values: {v1} vs {v2}")
 		warn(f'{v1.n3()} vs {v2.n3()}')
+		print_pos(f1, f1_field_value)
+		print_pos(f2, f2_field_value)
 	print(f'has value: {v1}')
+
+def print_pos(f, field_value):
+	sheet = one(f.objects(field_value, E.has_sheet_name))
+	col = one(f.objects(field_value, E.col))
+	row = one(f.objects(field_value, E.row))
+	warn(f'in {sheet} {col} {row}')
 
 
 def one(generator):
