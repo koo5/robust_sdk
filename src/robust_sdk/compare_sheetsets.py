@@ -105,7 +105,7 @@ def check_unknown_field_decls(f1_unknown_field_decls, f2_unknown_field_decls):
 			warn(f"unknown field {idx} is missing from f2")
 			return
 		if d != f2_unknown_field_decls[idx]:
-			warn(f"unknown field {idx} has different names: {d} vs {f2_unknown_field_decls[idx]}")
+			warn(f"unknown field {idx} differs: {d} vs {f2_unknown_field_decls[idx]}")
 
 
 def walk_record(templates, f1, f2, template, f1_data, f2_data):
