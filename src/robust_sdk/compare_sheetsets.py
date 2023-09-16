@@ -190,6 +190,7 @@ def visit_discrete_field(templates, f1, f2, field, field_type, f1_field_value, f
 	v2 = one(f2.objects(f2_field_value, RDF.value))
 	if v1 != v2:
 		warn(f"field {field} has different values: {v1} vs {v2}")
+		warn(f'{v1.n3()} vs {v2.n3()}')
 	print(f'has value: {v1}')
 
 
