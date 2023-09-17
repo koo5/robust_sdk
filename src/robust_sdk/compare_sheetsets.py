@@ -19,6 +19,7 @@ def warn(msg):
 @click.argument('fn1', type=click.File('r'))
 @click.argument('fn2', type=click.File('r'))
 def compare_sheetsets(templates_fn, fn1, fn2):
+	global warnings
 	logger.debug(f"load {templates_fn}")
 	t = rdflib.ConjunctiveGraph()
 	t.parse(templates_fn, format='trig')
@@ -33,19 +34,22 @@ def compare_sheetsets(templates_fn, fn1, fn2):
 
 	# print(list(f1.triples((None, None, None))))
 
+	warningset = {}
+
 	for templatedef in [t, f1, f2]:
 		m = f"using templatedef: {templatedef.identifier}"
 		logger.info(m)
-		if len(warnings) > 0:
-			logger.warning(m)
-
+		warningset[templatedef] = warnings
 		walk_sheetset(templatedef, f1, f2)
+		warnings = []
 
-	if len(warnings) > 0:
-		logger.warning(f"warnings:")
-		for w in warnings:
-			logger.warning(w)
-
+	for k,v in warningset.items():
+		logger.warning(f"warnings for {k.identifier}:")
+		for w in v:
+			logger.info(w)
+		if len(v) > 0:
+			logger.warning('')
+			logger.warning('')
 
 def walk_sheetset(t, f1, f2):
 	request_uri = 'https://rdf.lodgeit.net.au/v1/excel_request#request'
