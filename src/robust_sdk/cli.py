@@ -10,10 +10,9 @@ def cli(debug):
 
 @cli.command()
 @click.argument('xml', type=click.File('r'))
-@functools.wraps(xml2rdf)
+@functools.wraps(Xml2rdf.xml2rdf)
 def xml2rdf(xml, destdir='.'):
 	return Xml2rdf().xml2rdf(xml, destdir)
-
 
 if __name__ == '__main__':
 	cli()
