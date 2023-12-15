@@ -21,7 +21,7 @@ class Xml2rdf():
 			logging.getLogger(__name__).info(e)
 			return None
 		if self.xml_request is None:
-			logging.getLogger(__name__).info('Not a valid IC XML file')
+			logging.getLogger(__name__).info('Not an investment calculator XML file')
 			return None
 
 		self.g = rdflib.Graph(identifier = R.data_graph)
