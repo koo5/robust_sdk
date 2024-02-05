@@ -158,7 +158,7 @@ class Xml2rdf():
 			
 			self.unit_names.add(unitType)
 
-		self.add_sheet(IC.unit_valueses, 'unit_values', self.assert_list_value(unit_values))
+		self.add_sheet(IC_UI.unit_values_sheet, 'unit_values', self.assert_list_value(unit_values))
 
 
 
