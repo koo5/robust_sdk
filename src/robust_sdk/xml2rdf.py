@@ -1,4 +1,5 @@
 import logging
+import os
 import pathlib
 import xml.etree.ElementTree as xmltree
 import rdflib
@@ -67,8 +68,8 @@ class Xml2rdf():
 		self.g.add((report_details, IC.pricing_method,	self.assert_value(IC.lifo)))
 		
 		taxonomy1 = BNode(); self.g.add((taxonomy1, V1['account_taxonomies#url'],  self.assert_value(V1['account_taxonomies#base'])))
-		#taxonomy2 = BNode(); self.g.add((taxonomy2, V1['account_taxonomies#url'],  self.assert_value(V1['account_taxonomies#investments__legacy'])))
-		taxonomy2 = BNode(); self.g.add((taxonomy2, V1['account_taxonomies#url'],  self.assert_value(V1['account_taxonomies#investments'])))
+		taxonomy2 = BNode(); self.g.add((taxonomy2, V1['account_taxonomies#url'],  self.assert_value(V1['account_taxonomies#investments__legacy'])))
+		#taxonomy2 = BNode(); self.g.add((taxonomy2, V1['account_taxonomies#url'],  self.assert_value(V1['account_taxonomies#investments'])))
 		#taxonomy3 = BNode(); g.add((taxonomy3, V1['account_taxonomies#url'],  V1['account_taxonomies#livestock']))
 		account_taxonomies = [
 			taxonomy1,
@@ -99,17 +100,32 @@ class Xml2rdf():
 				unit = t.findtext('unit')
 				unitType = t.findtext('unitType')
 
-				#print(transdesc, transdate, debit, credit, unit, unitType)
+				print(
+					transdesc.__repr__(),
+					transdate.__repr__(),
+					debit.__repr__(),
+					credit.__repr__(),
+					unit.__repr__(),
+					unitType.__repr__(),
+				)
 
 				# add transaction to RDF graph
 				tx = BNode()#'tx')
 				rdf_transactions.append(tx)
 				self.g.add((tx, BS.transaction_description, self.assert_value(transdesc)))
 				self.g.add((tx, BS.bank_transaction_date, self.assert_value(date_literal(transdate))))
-				self.g.add((tx, BS.transaction_debit, self.assert_value(debit)))
-				self.g.add((tx, BS.transaction_credit, self.assert_value(credit)))
-				self.g.add((tx, BS.transaction_unit, self.assert_value(unit)))
-				self.g.add((tx, BS.transaction_unit_type, self.assert_value(unitType)))
+				if debit:
+					self.g.add((tx, BS.debit, self.assert_value(float(debit))))
+				if credit:
+					self.g.add((tx, BS.credit, self.assert_value(float(credit))))
+				if unit:
+					if unitType:
+						self.g.add((tx, BS.units_type, self.assert_value(unitType)))
+						self.g.add((tx, BS.units_count, self.assert_value(float(unit))))
+					elif unit == '0':
+						pass
+					else:
+						raise InputException('unit count but unitType not specified')
 
 			accountNo = accd.find('accountNo').text
 			accountName = accd.find('accountName').text
@@ -152,7 +168,7 @@ class Xml2rdf():
 
 			self.g.add((v, RDF.type, IC.unit_value))
 			self.g.add((v, UV.name, self.assert_value(unitType)))
-			self.g.add((v, UV.value, self.assert_value(unitValue)))
+			self.g.add((v, UV.value, self.assert_value(float(unitValue))))
 			self.g.add((v, UV.date, self.assert_value(date_literal(unitValueDate))))
 			self.g.add((v, UV.currency, self.assert_value(unitValueCurrency)))
 			
@@ -166,14 +182,10 @@ class Xml2rdf():
 	def add_action_verbs_sheet(self):
 		action_verbs = []
 		xml_verbs = self.xml_request.findall('actionTaxonomy/action')
-		for xml_verb in xml_verbs:
+
+		def add_action_verb(id, description, exchangeAccount, tradingAccount):
 			v = BNode()#'action')
 			action_verbs.append(v)
-			id = xml_verb.find('id').text
-			exchangeAccount = xml_verb.find('exchangeAccount').text
-			tradingAccount = xml_verb.findtext('tradingAccount')
-			description = xml_verb.findtext('description')
-
 			self.g.add((v, RDF.type, IC.action_verb))
 			self.g.add((v, AV.name, self.assert_value(id)))
 			if description not in [None, '']:
@@ -181,6 +193,17 @@ class Xml2rdf():
 			self.g.add((v, AV.exchanged_account, self.assert_value(exchangeAccount)))
 			if tradingAccount not in [None, '']:
 				self.g.add((v, AV.trading_account, self.assert_value(tradingAccount)))
+		
+		if len(xml_verbs) == 0:
+			print(os.getcwd())
+			xml_verbs = xmltree.parse('../../sources/static/default_action_taxonomy.xml').getroot().findall('action')
+		
+		for xml_verb in xml_verbs:
+			id = xml_verb.find('id').text
+			exchangeAccount = xml_verb.find('exchangeAccount').text
+			tradingAccount = xml_verb.findtext('tradingAccount')
+			description = xml_verb.findtext('description')
+			add_action_verb(id, description, exchangeAccount, tradingAccount)
 
 
 		self.add_sheet(IC_UI.action_verbs_sheet, 'action_verbs', self.assert_list_value(action_verbs))
