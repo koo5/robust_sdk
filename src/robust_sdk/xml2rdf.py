@@ -164,7 +164,8 @@ class Xml2rdf():
 			unitValueCurrency = xml_unit_value.findtext('unitValueCurrency')
 			if unitValueCurrency in ['', None]:
 				unitValueCurrency = self.reportCurrency
-			#print(unitType, unitValue, unitValueDate)
+			
+			print(unitType.__repr__(), unitValue.__repr__(), unitValueDate.__repr__())
 
 			self.g.add((v, RDF.type, IC.unit_value))
 			self.g.add((v, UV.name, self.assert_value(unitType)))
@@ -195,8 +196,8 @@ class Xml2rdf():
 				self.g.add((v, AV.trading_account, self.assert_value(tradingAccount)))
 		
 		if len(xml_verbs) == 0:
-			print(os.getcwd())
-			xml_verbs = xmltree.parse('../../sources/static/default_action_taxonomy.xml').getroot().findall('action')
+			#print(os.getcwd())
+			xml_verbs = xmltree.parse('../../sources/static/default_action_taxonomy__legacy.xml').getroot().findall('action')
 		
 		for xml_verb in xml_verbs:
 			id = xml_verb.find('id').text
