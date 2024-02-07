@@ -9,6 +9,12 @@ from .utils import *
 from .prefixes import *
 
 
+
+logging.basicConfig(level=logging.DEBUG)
+logging.getLogger(__name__).setLevel(logging.DEBUG)
+
+
+
 class Xml2rdf():
 
 	def xml2rdf(self, xml, destdir: pathlib.Path):
@@ -25,6 +31,11 @@ class Xml2rdf():
 			logging.getLogger(__name__).info('Not an investment calculator XML file')
 			return None
 
+		self.caselog = logging.getLogger('caselog')
+		self.caselog.setLevel(logging.DEBUG)
+		self.caselog.addHandler(logging.FileHandler(destdir / 'xml2rdf.log', mode='w'))
+
+
 		self.g = rdflib.Graph(identifier = R.data_graph)
 		self.rg = rdflib.Graph(identifier = R.request_graph)
 		
@@ -36,7 +47,7 @@ class Xml2rdf():
 
 		self.reportCurrency = self.xml_request.find('reportCurrency/unitType').text
 		#logging.getLogger('dataDebug').debug(self.defaultCurrency.__repr__())
-		#print(self.defaultCurrency)
+		#self.caselog.info(self.defaultCurrency)
 
 		self.add_report_details_sheet()
 		self.add_bank_statement_sheets()
@@ -58,6 +69,9 @@ class Xml2rdf():
 
 
 	def add_report_details_sheet(self):
+		self.caselog.info()
+		self.caselog.info('add_report_details_sheet')
+	
 		report_details = BNode()#'bank_statement')
 		self.g.add((report_details, RDF.type, BS.report_details))
 
@@ -83,12 +97,23 @@ class Xml2rdf():
 
 
 	def add_bank_statement_sheets(self):
-
+		self.caselog.info()
+		self.caselog.info('add_bank_statement_sheets')
+		
 		bst = self.xml_request.find('bankStatement')
 		if bst is None:
 			raise InputException('Not a valid IC XML file')
 
 		for accd in bst.findall("accountDetails"):
+			self.caselog.info('accountDetails')
+
+			accountNo = accd.find('accountNo').text
+			accountName = accd.find('accountName').text
+			bankID = accd.find('bankID').text
+			currency = accd.find('currency').text
+			self.caselog.info(accountNo, accountName, bankID, currency)
+
+
 			xml_transactions = accd.find('transactions')
 			rdf_transactions = []
 			for t in xml_transactions:
@@ -100,7 +125,7 @@ class Xml2rdf():
 				unit = t.findtext('unit')
 				unitType = t.findtext('unitType')
 
-				print(
+				self.caselog.info(
 					transdesc.__repr__(),
 					transdate.__repr__(),
 					debit.__repr__(),
@@ -127,11 +152,6 @@ class Xml2rdf():
 					else:
 						raise InputException('unit count but unitType not specified')
 
-			accountNo = accd.find('accountNo').text
-			accountName = accd.find('accountName').text
-			bankID = accd.find('bankID').text
-			currency = accd.find('currency').text
-			#print(accountNo, accountName, bankID, currency)
 
 			bs = BNode()#'bank_statement')
 			self.g.add((bs, RDF.type, BS.bank_statement))
@@ -147,6 +167,9 @@ class Xml2rdf():
 
 
 	def add_unit_values_sheet(self):
+		self.caselog.info()
+		self.caselog.info('add_unit_values_sheet')
+	
 		unit_values = []
 		for xml_unit_value in self.xml_request.find('unitValues').findall('unitValue'):
 			v = BNode()#'unit_value')
@@ -160,12 +183,14 @@ class Xml2rdf():
 				unitValueDate = self.startDate
 			elif unitValueDate == 'closing':
 				unitValueDate = self.endDate
-																						#todo might just as well pass all dates through as text?
+			#todo might just as well pass all dates through as text?
+			
+			
 			unitValueCurrency = xml_unit_value.findtext('unitValueCurrency')
 			if unitValueCurrency in ['', None]:
 				unitValueCurrency = self.reportCurrency
 			
-			print(unitType.__repr__(), unitValue.__repr__(), unitValueDate.__repr__())
+			self.caselog.info(unitType.__repr__(), unitValue.__repr__(), unitValueDate.__repr__(), unitValueCurrency.__repr__() )
 
 			self.g.add((v, RDF.type, IC.unit_value))
 			self.g.add((v, UV.name, self.assert_value(unitType)))
@@ -181,6 +206,9 @@ class Xml2rdf():
 
 
 	def add_action_verbs_sheet(self):
+		self.caselog.info()
+		self.caselog.info('add_action_verbs_sheet')
+	
 		action_verbs = []
 		xml_verbs = self.xml_request.findall('actionTaxonomy/action')
 
@@ -196,7 +224,7 @@ class Xml2rdf():
 				self.g.add((v, AV.trading_account, self.assert_value(tradingAccount)))
 		
 		if len(xml_verbs) == 0:
-			#print(os.getcwd())
+			#self.caselog.info(os.getcwd())
 			xml_verbs = xmltree.parse('../../sources/static/default_action_taxonomy__legacy.xml').getroot().findall('action')
 		
 		for xml_verb in xml_verbs:
@@ -212,6 +240,9 @@ class Xml2rdf():
 
 
 	def add_unit_types_sheet(self):
+		self.caselog.info()
+		self.caselog.info('add_unit_types_sheet')
+	
 		types = []
 		for name in self.unit_names:
 			u = BNode()
