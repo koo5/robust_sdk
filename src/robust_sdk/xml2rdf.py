@@ -149,10 +149,11 @@ class Xml2rdf():
 	def add_unit_values_sheet(self):
 		unit_values = []
 		for xml_unit_value in self.xml_request.find('unitValues').findall('unitValue'):
-			v = BNode()#'unit_value')
-			unit_values.append(v)
+
 			unitType = xml_unit_value.find('unitType').text
 			unitValue = xml_unit_value.find('unitValue').text
+
+
 			unitValueDate = xml_unit_value.findtext('unitValueDate')
 			if unitValueDate in ['', None]:
 				unitValueDate = self.endDate
@@ -160,12 +161,19 @@ class Xml2rdf():
 				unitValueDate = self.startDate
 			elif unitValueDate == 'closing':
 				unitValueDate = self.endDate
-																						#todo might just as well pass all dates through as text?
+			#todo might just as well pass all dates through as text?
+
+
 			unitValueCurrency = xml_unit_value.findtext('unitValueCurrency')
 			if unitValueCurrency in ['', None]:
 				unitValueCurrency = self.reportCurrency
 			
-			print(unitType.__repr__(), unitValue.__repr__(), unitValueDate.__repr__())
+			print(unitType.__repr__(), unitValue.__repr__(), unitValueDate.__repr__(), unitValueCurrency.__repr__() )
+
+
+			v = BNode()#'unit_value')
+			unit_values.append(v)
+
 
 			self.g.add((v, RDF.type, IC.unit_value))
 			self.g.add((v, UV.name, self.assert_value(unitType)))
