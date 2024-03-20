@@ -9,6 +9,10 @@ from .utils import *
 from .prefixes import *
 
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+
 class Xml2rdf():
 
 	def xml2rdf(self, xml, destdir: pathlib.Path):
@@ -16,13 +20,14 @@ class Xml2rdf():
 		Load the legacy IC XML file and produce robust IC RDF.
 		XML - path of XML file.
 		"""
+		logger.info('xml2rdf %s', xml)
 		try:
 			self.xml_request = xmltree.parse(xml).getroot().find('balanceSheetRequest')
 		except xmltree.ParseError as e:
-			logging.getLogger(__name__).info(e)
+			logger.info(e)
 			return None
 		if self.xml_request is None:
-			logging.getLogger(__name__).info('Not an investment calculator XML file')
+			logger.info('Not an investment calculator XML file')
 			return None
 
 		self.g = rdflib.Graph(identifier = R.data_graph)
