@@ -132,6 +132,7 @@ Next steps (post-promotion-to-koo5/robust_sdk master)
    `default_action_taxonomy__legacy.xml`. Either bundle the XML as a package
    resource or hardcode the list in Python. Callers explicitly opt in:
        req = LedgerRequest(..., action_verbs=default_action_verbs())
+ - not sure, sdk should probably expose the possible values and the choice, so agents can fiddle.
 
 3. Eyeball parity already verified manually for ledger-10 fixture (every
    meaningful predicate matches; differences are: 62 dead `excel:sheet_name
@@ -148,11 +149,7 @@ Next steps (post-promotion-to-koo5/robust_sdk master)
    against the swapped path. If results are identical, sdk2 is at end-to-end
    parity.
 
-6. Once verified, retire `sources/common/libs/sdk` (legacy submodule) and
-   register sources/common/libs/sdk2/ as a submodule pointing at
-   koo5/robust_sdk. (The repo still hosts package `robust_sdk2` for now;
-   renaming the package to `robust_sdk` is a separate follow-up if/when we
-   want repo and module names to align.)
+6. Once verified, pull common/libs/sdk master (new sdk version)
 
 7. Decimal-vs-float decision (open item above) — revisit during the swap;
    current builder casts to float to match xml2rdf wire output.
