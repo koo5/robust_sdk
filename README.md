@@ -12,7 +12,9 @@ covered.
 ## Install
 
 ```bash
-pip install -e sources/common/libs/sdk2
+pip install git+https://github.com/koo5/robust_sdk
+# or, working from a clone:
+git clone https://github.com/koo5/robust_sdk && pip install -e robust_sdk
 ```
 
 Requires Python ≥ 3.10. Pulls in `pydantic>=2` and `rdflib>=7`.
@@ -68,24 +70,62 @@ print(job.view_url)
 print(job.poll())
 ```
 
-## URI hatch
+## Adapting your own data
 
-After `submit` (or a direct `build_request_rdf`) returns, every model that
-was part of the request has its `uri` field populated with the identifier
-the builder used as the subject of the type-asserting triple for that
-object. Pre-populate `uri` before submitting to pin a stable URI of your
-choice, or read it back afterwards to attach extra metadata to the same
-graph.
+The recommended way to use the SDK is to write a small adapter that reads
+your input (CSV, YAML, a database query, …) and populates the typed domain
+objects. The reference adapter — for the legacy `balanceSheetRequest` XML
+shape — ships as `robust_sdk2.parse_balance_sheet_xml`:
 
 ```python
-from rdflib import URIRef, Literal, Namespace
-from robust_sdk2 import build_request_rdf
+from robust_sdk2 import parse_balance_sheet_xml, default_action_verbs
 
-graph = build_request_rdf(req)
-MY = Namespace("https://my.example/ns#")
-txn = req.bank_statements[0].transactions[1]
-graph.add((URIRef(txn.uri), MY.note, Literal("LLM-classified as investment")))
+req = parse_balance_sheet_xml(
+    Path("request.xml"),
+    fallback_action_verbs=default_action_verbs(),
+)
 ```
+
+The source lives at `src/robust_sdk2/balance_sheet_xml.py`. Read it and
+the per-section helpers (`_bank_statements`, `_transactions`,
+`_unit_values`, `_action_verbs`) for the pattern; copy and adapt the
+shape for whatever your input format looks like.
+
+`robust_sdk2.default_action_verbs()` returns the canonical LodgeIT verb
+taxonomy as a starter set:
+
+```python
+from robust_sdk2 import default_action_verbs
+
+req = LedgerRequest(..., action_verbs=default_action_verbs())
+```
+
+Bank-statement transactions resolve their action verb by matching the
+transaction's `description` against `ActionVerb.name`; the calculator
+throws on an unmatched description, so ship a taxonomy that covers the
+descriptions in your transactions.
+
+## End-to-end demo
+
+`examples/xml_client.py` ties the pieces together: parse a request file, submit,
+poll until the job finishes, print the result. Configuration is environment-
+driven so the same script targets a local stack and a remote deployment:
+
+```bash
+# local (no auth, defaults to http://localhost:8877)
+python examples/xml_client.py path/to/request.xml
+
+# remote with HTTP Basic
+ROBUST_URL=https://robust.example.com \
+ROBUST_AUTH=username:secret \
+    python examples/xml_client.py path/to/request.xml
+```
+
+## Advanced
+
+- [`docs/uri_hatch.md`](docs/uri_hatch.md) — attaching arbitrary RDF triples
+  to the request graph after building (custom provenance, classifier
+  confidence, source-file annotations, …).
 
 ## API surface
 

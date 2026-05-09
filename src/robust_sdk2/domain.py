@@ -120,6 +120,18 @@ class ActionVerb(_AddressableModel):
     trading_account: Optional[str] = None
     """GL account where realised gains/losses for this verb are tracked
     (typically only meaningful for investment-related verbs)."""
+    gst_rate_percent: Optional[Decimal] = None
+    """If set, transactions classified under this verb are split into a base
+    amount and a GST component at this rate (e.g. Decimal("10") for 10%).
+    The calculator pairs this with `gst_payable_account` (for sales-side
+    verbs) or `gst_receivable_account` (for purchases-side verbs) to post
+    the GST component to the right GL account."""
+    gst_receivable_account: Optional[str] = None
+    """GL account for the GST receivable component (purchases). Set together
+    with `gst_rate_percent` for input-tax verbs."""
+    gst_payable_account: Optional[str] = None
+    """GL account for the GST payable component (sales). Set together with
+    `gst_rate_percent` for output-tax verbs."""
 
 
 class UnitValue(_AddressableModel):

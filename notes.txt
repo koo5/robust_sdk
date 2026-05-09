@@ -50,6 +50,14 @@ ActionVerb:
   AV.description
   AV.exchanged_account
   AV.trading_account
+  AV.gst_rate_percent (Decimal, optional)
+  AV.gst_receivable_account (optional)
+  AV.gst_payable_account (optional)
+  GST handling: action_verbs.pl:23-33 maps the av:gst_* predicates to
+  l:has_gst_* predicates on the verb; bank_statement.pl:463-475 reads them
+  to drive per-transaction GST split. Legacy xml2rdf was silently dropping
+  these from input XML; the SDK emits them when the model fields are set,
+  unlocking GST math that was latent on that path.
 
 UnitValue:
   rdf:type → IC.unit_value
@@ -111,8 +119,14 @@ parity.
 
 Open items
 ==========
-- Decimal vs float for amounts: xml2rdf uses Python float. Switching to Decimal
-  is the right thing for accounting but may affect Prolog parsing. Verify.
+- Decimal preserved end-to-end (resolved 2026-05): builder used to cast Decimal
+  fields to float at emit time, producing xsd:double literals that serialised
+  as "2e+02" / "1e+01" in N3. Now passes Decimal straight to rdflib.Literal,
+  giving xsd:decimal literals that serialise cleanly as "200.0" / "10.0" with
+  exact precision preserved (rdflib uses xsd:decimal datatype; SWI semweb
+  accepts that as a native rational/number on read). Worth re-running the
+  endpoint test suite after the next swap to confirm no calculator path was
+  relying on xsd:double specifically.
 - Default action verbs fallback: xml2rdf falls back to
   ../../sources/static/default_action_taxonomy__legacy.xml when XML has none.
   In sdk2, callers must provide them explicitly OR we ship a default constant

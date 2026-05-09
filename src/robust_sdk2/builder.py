@@ -51,7 +51,14 @@ class _Builder:
         self._add_action_verbs_sheet()
         self._add_unit_types_sheet()
 
-        self.g.add((ER.request, E.has_sheet_instances, self._emit_list_cell(self.req, "sheet_instances", self.sheet_instances)))
+        # `:request excel:has_sheet_instances` points DIRECTLY at the RDF list,
+        # not via a cell-wrapper. The Prolog calculator iterates that list to
+        # find sheet_instances; cell-wrapping it would be invisible to that
+        # iteration and the once() inside process_rdf_request would fail.
+        sheet_instances_list = BNode()
+        Collection(self.g, sheet_instances_list, self.sheet_instances)
+        self.req.cells["sheet_instances"] = sheet_instances_list  # still expose for callers
+        self.g.add((ER.request, E.has_sheet_instances, sheet_instances_list))
         self.g.add((ER.request, R.client_version, Literal("3")))
         return self.g
 
@@ -121,16 +128,16 @@ class _Builder:
                 self.g.add((tx_node, BS.transaction_description, self._emit_cell(tx, "description", tx.description)))
                 self.g.add((tx_node, BS.bank_transaction_date, self._emit_cell(tx, "date", self._date_literal(tx.date))))
                 if tx.debit is not None:
-                    self.g.add((tx_node, BS.debit, self._emit_cell(tx, "debit", float(tx.debit))))
+                    self.g.add((tx_node, BS.debit, self._emit_cell(tx, "debit", tx.debit)))
                 if tx.credit is not None:
-                    self.g.add((tx_node, BS.credit, self._emit_cell(tx, "credit", float(tx.credit))))
+                    self.g.add((tx_node, BS.credit, self._emit_cell(tx, "credit", tx.credit)))
                 if tx.units_type is not None:
                     self.g.add((tx_node, BS.units_type, self._emit_cell(tx, "units_type", tx.units_type)))
                     if tx.units_count is None:
                         raise ValueError(
                             f"Transaction {tx_node!r}: units_count must be set when units_type is set"
                         )
-                    self.g.add((tx_node, BS.units_count, self._emit_cell(tx, "units_count", float(tx.units_count))))
+                    self.g.add((tx_node, BS.units_count, self._emit_cell(tx, "units_count", tx.units_count)))
                 tx_nodes.append(tx_node)
 
             stmt_node = self._set_uri(stmt)
@@ -151,7 +158,7 @@ class _Builder:
             c = uv.currency or self.req.report_details.report_currency
             self.g.add((node, RDF.type, IC.unit_value))
             self.g.add((node, UV.name, self._emit_cell(uv, "unit_type", uv.unit_type)))
-            self.g.add((node, UV.value, self._emit_cell(uv, "value", float(uv.value))))
+            self.g.add((node, UV.value, self._emit_cell(uv, "value", uv.value)))
             self.g.add((node, UV.date, self._emit_cell(uv, "date", self._date_literal(d))))
             self.g.add((node, UV.currency, self._emit_cell(uv, "currency", c)))
             nodes.append(node)
@@ -168,6 +175,12 @@ class _Builder:
             self.g.add((node, AV.exchanged_account, self._emit_cell(av, "exchanged_account", av.exchanged_account)))
             if av.trading_account:
                 self.g.add((node, AV.trading_account, self._emit_cell(av, "trading_account", av.trading_account)))
+            if av.gst_rate_percent is not None:
+                self.g.add((node, AV.gst_rate_percent, self._emit_cell(av, "gst_rate_percent", av.gst_rate_percent)))
+            if av.gst_receivable_account:
+                self.g.add((node, AV.gst_receivable_account, self._emit_cell(av, "gst_receivable_account", av.gst_receivable_account)))
+            if av.gst_payable_account:
+                self.g.add((node, AV.gst_payable_account, self._emit_cell(av, "gst_payable_account", av.gst_payable_account)))
             nodes.append(node)
         self._add_sheet(IC_UI.action_verbs_sheet, "action_verbs", self._emit_list_cell(self.req, "action_verbs", nodes))
 
