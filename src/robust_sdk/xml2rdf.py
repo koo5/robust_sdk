@@ -69,7 +69,7 @@ class Xml2rdf():
 
 
 	def add_report_details_sheet(self):
-		self.caselog.info()
+		self.caselog.info('')
 		self.caselog.info('add_report_details_sheet')
 	
 		report_details = BNode()#'bank_statement')
@@ -97,7 +97,7 @@ class Xml2rdf():
 
 
 	def add_bank_statement_sheets(self):
-		self.caselog.info()
+		self.caselog.info('')
 		self.caselog.info('add_bank_statement_sheets')
 		
 		bst = self.xml_request.find('bankStatement')
@@ -167,7 +167,7 @@ class Xml2rdf():
 
 
 	def add_unit_values_sheet(self):
-		self.caselog.info()
+		self.caselog.info('')
 		self.caselog.info('add_unit_values_sheet')
 	
 		unit_values = []
@@ -211,7 +211,7 @@ class Xml2rdf():
 
 
 	def add_action_verbs_sheet(self):
-		self.caselog.info()
+		self.caselog.info('')
 		self.caselog.info('add_action_verbs_sheet')
 	
 		action_verbs = []
@@ -245,7 +245,7 @@ class Xml2rdf():
 
 
 	def add_unit_types_sheet(self):
-		self.caselog.info()
+		self.caselog.info('')
 		self.caselog.info('add_unit_types_sheet')
 	
 		types = []
