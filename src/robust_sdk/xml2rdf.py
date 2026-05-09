@@ -10,7 +10,8 @@ from .prefixes import *
 
 
 logging.basicConfig(level=logging.DEBUG)
-logging.getLogger(__name__).setLevel(logging.DEBUG)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 class Xml2rdf():
