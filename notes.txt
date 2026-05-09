@@ -1,0 +1,168 @@
+Meta-notes for sdk2 development. Not user docs.
+
+Scope
+=====
+- Covers the ledger-request subset: report details, bank statements + transactions,
+  unit values, action verbs, unit types. Same surface area as the existing
+  robust_sdk.xml2rdf.Xml2rdf.
+- Out of scope: depreciation, livestock, hire-purchase calculator inputs.
+  Add as sibling modules later (e.g. depreciation_request.py + builder hook).
+
+Why a parallel sdk2 (vs. refactoring sdk in place)
+==================================================
+The legacy SDK's xml2rdf.py is consumed by manager_actors.preprocess_request_file
+to handle /upload's request_format=xml path. We don't want to disturb that until
+the new code is verified by the endpoint test runner. sdk2 lives alongside; once
+parity is proven, callers migrate over.
+
+Predicate map (sdk2 model → RDF triple) — derived from xml2rdf.py
+=================================================================
+Authoritative: faithfully replicate what xml2rdf produces today, since that is
+what the Prolog calculator reads. Schema documentation in /static/RdfTemplates.n3
+is informative but uses some different predicate names (e.g. av:id where xml2rdf
+emits AV.name, av:counteraccount_id vs AV.exchanged_account); not our problem
+right now — match the wire format.
+
+ReportDetails:
+  rdf:type → BS.report_details
+  IC.cost_or_market → IC.market   (constant in xml2rdf; configurable here)
+  IC.currency → Literal(currency code)
+  IC['from'] → date Literal
+  IC['to'] → date Literal
+  IC.pricing_method → IC.lifo     (constant in xml2rdf; configurable here)
+  IC_UI.account_taxonomies → RDF list of taxonomy URIs
+
+BankStatement:
+  rdf:type → BS.bank_statement
+  BS.account_currency, BS.account_name, BS.account_number, BS.bank_id
+  BS.items → RDF list of transaction nodes
+
+Transaction:
+  BS.transaction_description
+  BS.bank_transaction_date → date Literal
+  BS.debit / BS.credit → Decimal Literal (xml2rdf uses float; consider keeping
+    that until we confirm Prolog accepts xsd:decimal)
+  BS.units_type / BS.units_count → string + Decimal/float
+
+ActionVerb:
+  rdf:type → IC.action_verb
+  AV.name (from XML <id>)
+  AV.description
+  AV.exchanged_account
+  AV.trading_account
+
+UnitValue:
+  rdf:type → IC.unit_value
+  UV.name (= unit_type)
+  UV.value → Decimal/float Literal
+  UV.date → date Literal
+  UV.currency
+
+UnitType:
+  IC.unit_type_name
+  IC.unit_type_category
+  Default category in xml2rdf is "Financial_Investments". Auto-derived from
+  the union of UnitValue.unit_type strings if list left as None.
+
+Cell-wrapper layer
+==================
+Every leaf value goes into a sheet-cell BNode: (cell rdf:value <value>). The
+Prolog code reads these via doc(Cell, rdf:value, X) in many places (transactions.pl,
+extract_bank_accounts.pl, exchange_rates.pl, gl_input.pl, types.pl, …) — so the
+wrapper is structurally required.
+
+Provenance attached to cells is currently NOT consumed by Prolog. The C# extractor
+emits excel:has_sheet_name + excel:col + excel:row on each cell wrapper, but no
+sources/lib/*.pl reads excel:col or excel:row from input data, and only
+excel:has_sheet_name is read — and only at the row-entity level (gl_input.pl
+lines 31, 44, 162; smsf_distribution.pl line 44). Those gl_input reads are
+patched (2026-05) to fall back to "unknown" when missing, so excel:has_sheet_name
+is no longer required either.
+
+xml2rdf was additionally buggy: emitted (cell excel:sheet_name "unknown") under
+the wrong predicate name (no `has_`), so even that minimal annotation was dead-letter
+for any XML-sourced input.
+
+Net: sdk2 emits NO required provenance triples. We expose row-entity URIs (via
+model.uri) and cell-wrapper URIs (via model.cells[field_name]) and let callers
+attach whatever predicates fit their input source — excel:has_sheet_name +
+excel:col + excel:row for spreadsheet origin, or yaml:file + yaml:line for YAML,
+or anything else. Display of these on the Prolog side is aspirational beyond
+the sheet-name fallback in transaction descriptions.
+
+URI hatch
+=========
+The URI hatch on domain models exposes BOTH:
+  - model.uri               row-level entity (subject of (X RDF.type ...))
+  - model.cells[field_name] per-property cell-wrapper bnode URIs
+
+Both are write-back-after-build. Pre-populating .uri pins a stable URI of your
+choice; cells is build-output-only.
+
+Two graphs
+==========
+xml2rdf populates two named graphs:
+  data_graph (R.data_graph) — the actual request data
+  request_graph (R.request_graph) — sheet metadata
+The /upload endpoint accepts a single rdflib graph or a multi-graph
+serialization. For sdk2 emit a ConjunctiveGraph (n-quads) so both named
+graphs survive serialization. Verify with a round-trip test before declaring
+parity.
+
+Open items
+==========
+- Decimal vs float for amounts: xml2rdf uses Python float. Switching to Decimal
+  is the right thing for accounting but may affect Prolog parsing. Verify.
+- Default action verbs fallback: xml2rdf falls back to
+  ../../sources/static/default_action_taxonomy__legacy.xml when XML has none.
+  In sdk2, callers must provide them explicitly OR we ship a default constant
+  (TBD).
+- v2 namespace dispatcher path (/upload2 with v2/calcs/ic2/...) is gated by an
+  unreachable URI; not exposed in sdk2 yet. Revisit when that backend is real.
+
+Next steps (post-promotion-to-koo5/robust_sdk master)
+=====================================================
+1. XML adapter: lift the XML-parsing pieces of legacy xml2rdf.py into sdk2 as
+   `parse_balance_sheet_xml(path: Path) -> LedgerRequest`. Strict separation
+   of layers — XML reading produces a domain object, builder.py turns that
+   into a graph. No assumptions about XML in domain.py / builder.py.
+
+2. Default action-verbs helper: ship `default_action_verbs() -> list[ActionVerb]`
+   that mirrors what legacy xml2rdf auto-loaded from
+   `default_action_taxonomy__legacy.xml`. Either bundle the XML as a package
+   resource or hardcode the list in Python. Callers explicitly opt in:
+       req = LedgerRequest(..., action_verbs=default_action_verbs())
+
+3. Eyeball parity already verified manually for ledger-10 fixture (every
+   meaningful predicate matches; differences are: 62 dead `excel:sheet_name
+   "unknown"` triples we deliberately dropped, plus the 16 default action
+   verbs that legacy auto-loads). Once (1) and (2) land, that gap closes.
+
+4. Accounts-assessor swap: replace
+       sources/manager/app/manager_actors.py:22  import robust_sdk.xml2rdf
+   with an sdk2-based adapter that does XML → LedgerRequest → graph and
+   writes the n3 file at the same destination, returning the same shape
+   `manager_actors.preprocess_request_file` expects.
+
+5. Run the endpoint test suite (tests/runner/runner/tests2.py + tests2/...)
+   against the swapped path. If results are identical, sdk2 is at end-to-end
+   parity.
+
+6. Once verified, retire `sources/common/libs/sdk` (legacy submodule) and
+   register sources/common/libs/sdk2/ as a submodule pointing at
+   koo5/robust_sdk. (The repo still hosts package `robust_sdk2` for now;
+   renaming the package to `robust_sdk` is a separate follow-up if/when we
+   want repo and module names to align.)
+
+7. Decimal-vs-float decision (open item above) — revisit during the swap;
+   current builder casts to float to match xml2rdf wire output.
+
+8. Coverage extension: GL accounts, account taxonomy rows, transaction_input
+   rows, other ledger sheet types declared in RdfTemplates.n3 but not in
+   xml2rdf — add as new domain models + builder methods following the
+   pattern established for the existing five sheets.
+
+9. Other-calculator support (depreciation, livestock, hire-purchase): out of
+   scope for ledger-only sdk2. Add as sibling modules
+   (`depreciation_request.py`, `livestock_request.py`, …) plus matching
+   builder hooks when needed.
