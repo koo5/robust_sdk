@@ -7,13 +7,16 @@ from rdflib import RDF, Literal, URIRef
 from robust_sdk2 import (
     ActionVerb,
     BankStatement,
+    GlInput,
+    JournalEntry,
+    JournalLine,
     LedgerRequest,
     ReportDetails,
     Transaction,
     UnitValue,
     build_request_rdf,
 )
-from robust_sdk2.prefixes import AV, BS, E, ER, IC, IC_UI, R, UV
+from robust_sdk2.prefixes import AV, BS, E, ER, IC, IC_UI, PHASES, R, UV
 
 
 def _minimal_request() -> LedgerRequest:
@@ -125,6 +128,83 @@ def test_no_dead_excel_sheet_name_triples():
     on sheet_instance entries is fine and remains."""
     g = build_request_rdf(_minimal_request())
     assert list(g.triples((None, E.sheet_name, None))) == []
+
+
+def test_gl_input_journal_entry_emits_dated_first_leg_only():
+    """JournalEntry → N gl_entry rows; first leg carries `ic:date`, the rest
+    omit it so the calculator groups them into one statement (St). See
+    `gl_input.pl` extract_gl_tx/8: a dated row mints a fresh St; an undated
+    row reuses the running St0 + Date0."""
+    req = _minimal_request()
+    req.gl_inputs = [
+        GlInput(
+            default_currency="AUD",
+            entries=[
+                JournalEntry(
+                    date=date(2023, 9, 1),
+                    description="Sale",
+                    lines=[
+                        JournalLine(account="Bank", debit="110.00"),
+                        JournalLine(account="Sales", credit="100.00"),
+                        JournalLine(account="GST_Payable", credit="10.00"),
+                    ],
+                ),
+                JournalEntry(
+                    date=date(2023, 9, 2),
+                    lines=[JournalLine(account="Bank_Charges", debit="2.50")],
+                ),
+            ],
+        )
+    ]
+    g = build_request_rdf(req)
+
+    legs = req.gl_inputs[0].entries[0].lines
+    # First leg of each entry has its date emitted; subsequent legs do not.
+    assert "date" in legs[0].cells
+    assert "date" not in legs[1].cells
+    assert "date" not in legs[2].cells
+    # Single-line entry's only leg has it too.
+    assert "date" in req.gl_inputs[0].entries[1].lines[0].cells
+
+    # All legs are typed gl_entry and appear under the gl record's ic:items.
+    leg_uris = {l.uri for e in req.gl_inputs[0].entries for l in e.lines}
+    assert all((u, RDF.type, IC.gl_entry) in g for u in leg_uris)
+    items_cell = req.gl_inputs[0].cells["entries"]
+    items_list_head = next(g.objects(items_cell, RDF.value))
+    from rdflib.collection import Collection
+    listed = list(Collection(g, items_list_head))
+    assert listed == [l.uri for e in req.gl_inputs[0].entries for l in e.lines]
+
+    # Phase is emitted as a URIRef (excel:type excel:uri in the schema).
+    phase_cell = req.gl_inputs[0].cells["phase"]
+    assert (phase_cell, RDF.value, PHASES.main) in g
+
+    # Sheet is advertised under ic_ui:gl_input_sheet, with auto-name "GL_input_1".
+    sheet_types = {o for _s, _p, o in g.triples((None, E.sheet_instance_has_sheet_type, None))}
+    assert IC_UI.gl_input_sheet in sheet_types
+
+    # Per-leg description falls back to entry description when leg description omitted.
+    desc_cell = legs[0].cells["description"]
+    assert (desc_cell, RDF.value, Literal("Sale")) in g
+
+
+def test_gl_input_rejects_leg_without_debit_or_credit():
+    import pytest
+
+    req = _minimal_request()
+    req.gl_inputs = [
+        GlInput(
+            default_currency="AUD",
+            entries=[
+                JournalEntry(
+                    date=date(2023, 9, 1),
+                    lines=[JournalLine(account="Bank")],
+                ),
+            ],
+        )
+    ]
+    with pytest.raises(ValueError, match="must set debit or credit"):
+        build_request_rdf(req)
 
 
 def test_units_count_required_when_units_type_set():

@@ -37,7 +37,7 @@ or BNode), so they slot into rdflib triples directly. When you pre-populate
 """
 import datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from rdflib import URIRef
@@ -157,6 +157,59 @@ class UnitType(_AddressableModel):
     category: str = "Financial_Investments"
 
 
+class JournalLine(_AddressableModel):
+    """One leg of a journal entry: a debit or credit on a single account.
+
+    Belongs to a `JournalEntry` and inherits its date. Each line posts to
+    one GL account; combine multiple lines under one `JournalEntry` to
+    represent a balanced multi-leg posting (e.g. dr Bank / cr Sales).
+    """
+    account: str
+    """GL account identifier. Either a name from the taxonomy
+    (e.g. `"Bank"`) or a parametrised role expression like
+    `"!Investment_Income!<currency>!"`. Parametrised forms consume entries
+    from `params` left-to-right to fill `<slot>` placeholders."""
+    debit: Optional[str] = None
+    """Amount string parsed by the calculator's currency-vector grammar
+    (e.g. `"100.00"` to use the parent `GlInput`'s `default_currency`, or
+    `"100.00 USD"` for an explicit currency). Mutually optional with
+    `credit`."""
+    credit: Optional[str] = None
+    description: Optional[str] = None
+    """Per-leg description. Falls back to the parent `JournalEntry.description`
+    when omitted, then to `"unknown"` if neither is set."""
+    params: list[str] = []
+    """Up to 5 parameter strings for parametrised account specifiers."""
+
+
+class JournalEntry(_AddressableModel):
+    """A balanced journal posting: one date, one or more debit/credit lines.
+
+    Maps onto N rows in the calculator's GL-input sheet (one per `JournalLine`),
+    all sharing this `date`. The SDK handles that flattening; callers think
+    in terms of journal entries.
+    """
+    date: datetime.date
+    description: Optional[str] = None
+    """Default description applied to lines that don't set their own."""
+    lines: list[JournalLine]
+
+
+class GlInput(_AddressableModel):
+    """A batch of journal entries posted to the general ledger.
+
+    A request may carry multiple `GlInput` batches — one per phase, or
+    grouped by source system. The calculator concatenates their entries.
+    """
+    default_currency: str
+    """Currency used for line debit/credit amounts that omit a currency
+    code (e.g. just `"100.00"` rather than `"100.00 USD"`)."""
+    phase: Literal["main", "opening_balance"] = "main"
+    """Reporting phase: `"opening_balance"` seeds carry-forward state at the
+    start of the period; `"main"` is the reporting period itself."""
+    entries: list[JournalEntry] = []
+
+
 class ReportDetails(_AddressableModel):
     """Top-level report metadata (currency, date range, taxonomies)."""
     start_date: datetime.date
@@ -184,6 +237,11 @@ class LedgerRequest(_AddressableModel):
     """
     report_details: ReportDetails
     bank_statements: list[BankStatement] = []
+    gl_inputs: list[GlInput] = []
+    """Direct general-ledger journal-entry batches. Use these to feed
+    pre-classified transactions (debit/credit pairs against named GL
+    accounts) without going through bank-statement + action-verb
+    classification."""
     action_verbs: list[ActionVerb] = []
     unit_values: list[UnitValue] = []
     unit_types: Optional[list[UnitType]] = None

@@ -2,6 +2,9 @@
 from .domain import (
     ActionVerb,
     BankStatement,
+    GlInput,
+    JournalEntry,
+    JournalLine,
     LedgerRequest,
     ReportDetails,
     Transaction,
@@ -16,7 +19,10 @@ from .default_action_verbs import default_action_verbs
 __all__ = [
     "ActionVerb",
     "BankStatement",
+    "GlInput",
     "JobHandle",
+    "JournalEntry",
+    "JournalLine",
     "LedgerRequest",
     "ReportDetails",
     "Transaction",

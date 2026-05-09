@@ -173,6 +173,15 @@ Next steps (post-promotion-to-koo5/robust_sdk master)
    xml2rdf — add as new domain models + builder methods following the
    pattern established for the existing five sheets.
 
+   GL inputs landed 2026-05: domain.GlInput / JournalEntry / JournalLine,
+   builder._add_gl_input_sheets. Higher-level abstraction than the
+   row-format the calculator consumes — JournalEntry groups one date with
+   N debit/credit legs (one journal posting), the builder flattens to N
+   gl_entry rows and emits ic:date only on the first leg of each entry so
+   the calculator's extract_gl_tx running-date logic groups them into one
+   statement (St). Two adjacent JournalEntries on the same date are still
+   separated correctly because every dated row mints a fresh St.
+
 9. Other-calculator support (depreciation, livestock, hire-purchase): out of
    scope for ledger-only sdk2. Add as sibling modules
    (`depreciation_request.py`, `livestock_request.py`, …) plus matching

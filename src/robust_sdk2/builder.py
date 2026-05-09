@@ -16,9 +16,12 @@ from .domain import (
     ActionVerb,
     UnitValue,
     UnitType,
+    GlInput,
+    JournalEntry,
+    JournalLine,
     _AddressableModel,
 )
-from .prefixes import V1, R, E, ER, BS, IC, IC_UI, AV, UV
+from .prefixes import V1, R, E, ER, BS, IC, IC_UI, AV, UV, PHASES
 
 
 def build_request_rdf(req: LedgerRequest) -> Graph:
@@ -47,6 +50,7 @@ class _Builder:
         self._set_uri(self.req, ER.request)
         self._add_report_details_sheet()
         self._add_bank_statement_sheets()
+        self._add_gl_input_sheets()
         self._add_unit_values_sheet()
         self._add_action_verbs_sheet()
         self._add_unit_types_sheet()
@@ -149,6 +153,64 @@ class _Builder:
             self.g.add((stmt_node, BS.items, self._emit_list_cell(stmt, "transactions", tx_nodes)))
 
             self._add_sheet(IC.bank_statement, stmt.account_name, stmt_node)
+
+    def _add_gl_input_sheets(self) -> None:
+        for idx, gl in enumerate(self.req.gl_inputs):
+            line_nodes: list[Identifier] = []
+            for entry in gl.entries:
+                if not entry.lines:
+                    raise ValueError(
+                        f"JournalEntry on {entry.date.isoformat()} has no lines"
+                    )
+                for leg_idx, line in enumerate(entry.lines):
+                    if line.debit is None and line.credit is None:
+                        raise ValueError(
+                            f"JournalLine on {entry.date.isoformat()} for "
+                            f"account {line.account!r}: must set debit or credit"
+                        )
+                    if len(line.params) > 5:
+                        raise ValueError(
+                            f"JournalLine on {entry.date.isoformat()} for "
+                            f"account {line.account!r}: at most 5 params, got "
+                            f"{len(line.params)}"
+                        )
+                    line_node = self._set_uri(line)
+                    self.g.add((line_node, RDF.type, IC.gl_entry))
+                    # The calculator uses presence of `ic:date` as the
+                    # journal-entry boundary (gl_input.pl extract_gl_tx/8):
+                    # a dated row mints a fresh statement (St1); undated
+                    # rows reuse the running St0 + Date0. We emit `ic:date`
+                    # on the first leg of each JournalEntry only, so all
+                    # legs end up in the same statement.
+                    if leg_idx == 0:
+                        self.g.add((line_node, IC.date, self._emit_cell(line, "date", self._date_literal(entry.date))))
+                    self.g.add((line_node, IC.account, self._emit_cell(line, "account", line.account)))
+                    desc = line.description if line.description is not None else entry.description
+                    if desc is not None:
+                        self.g.add((line_node, IC.description, self._emit_cell(line, "description", desc)))
+                    if line.debit is not None:
+                        self.g.add((line_node, IC.debit, self._emit_cell(line, "debit", line.debit)))
+                    if line.credit is not None:
+                        self.g.add((line_node, IC.credit, self._emit_cell(line, "credit", line.credit)))
+                    for i, p in enumerate(line.params, start=1):
+                        self.g.add((line_node, IC[f"param{i}"], self._emit_cell(line, f"param{i}", p)))
+                    line_nodes.append(line_node)
+
+            gl_node = self._set_uri(gl)
+            self.g.add((gl_node, RDF.type, IC.gl))
+            self.g.add((gl_node, IC.default_currency, self._emit_cell(gl, "default_currency", gl.default_currency)))
+            phase_uri = PHASES[gl.phase]
+            self.g.add((gl_node, IC.phase, self._emit_cell(gl, "phase", phase_uri)))
+            self.g.add((gl_node, IC["items"], self._emit_list_cell(gl, "entries", line_nodes)))
+
+            # Sheet-type discrepancy: the schema declares `ic_ui:gl_input_sheet`
+            # as the sheet_type and real spreadsheet fixtures emit that, but the
+            # calculator's `extract_gl_inputs` (gl_input.pl:9) looks up sheets
+            # via `get_sheets_data(ic_ui:gl, …)` — the template URI, not the
+            # sheet-type URI. So we emit `ic_ui:gl` to actually exercise the
+            # extraction. (Bank statements use IC.bank_statement consistently
+            # both sides; GL is the odd one out.)
+            self._add_sheet(IC_UI.gl, f"GL_input_{idx + 1}", gl_node)
 
     def _add_unit_values_sheet(self) -> None:
         nodes: list[Identifier] = []
