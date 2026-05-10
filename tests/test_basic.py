@@ -179,9 +179,11 @@ def test_gl_input_journal_entry_emits_dated_first_leg_only():
     phase_cell = req.gl_inputs[0].cells["phase"]
     assert (phase_cell, RDF.value, PHASES.main) in g
 
-    # Sheet is advertised under ic_ui:gl_input_sheet, with auto-name "GL_input_1".
+    # Sheet is advertised under ic_ui:gl (template URI, matches what
+    # gl_input.pl's `get_sheets_data(ic_ui:gl, …)` looks up — the schema
+    # declares ic_ui:gl_input_sheet but the calculator filters by ic_ui:gl).
     sheet_types = {o for _s, _p, o in g.triples((None, E.sheet_instance_has_sheet_type, None))}
-    assert IC_UI.gl_input_sheet in sheet_types
+    assert IC_UI.gl in sheet_types
 
     # Per-leg description falls back to entry description when leg description omitted.
     desc_cell = legs[0].cells["description"]

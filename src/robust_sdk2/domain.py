@@ -37,11 +37,19 @@ or BNode), so they slot into rdflib triples directly. When you pre-populate
 """
 import datetime
 from decimal import Decimal
-from typing import Literal, Optional
+from typing import Annotated, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, WithJsonSchema, field_validator
 from rdflib import URIRef
 from rdflib.term import Identifier
+
+# rdflib's Identifier (URIRef/BNode) has no native JSON schema mapping.
+# Render it as a string in generated schemas — that matches the URI hatch's
+# behaviour, which coerces strings to URIRef on assignment.
+_IdentifierJsonSchema = WithJsonSchema({
+    "type": "string",
+    "description": "An RDF identifier — pre-populate with a URI string to pin a stable URI; coerced to URIRef on assignment.",
+})
 
 
 class _AddressableModel(BaseModel):
@@ -50,16 +58,24 @@ class _AddressableModel(BaseModel):
         extra="forbid",
         arbitrary_types_allowed=True,
         validate_assignment=True,  # so post-build .uri = "..." runs the coercer
+        use_attribute_docstrings=True,  # promote PEP 257 attr docstrings to Pydantic Field.description
     )
 
-    uri: Optional[Identifier] = None
+    uri: Annotated[Optional[Identifier], _IdentifierJsonSchema] = None
     """Identifier of the RDF node representing this object (subject of the
     type-asserting triple). Pre-populate (with a `URIRef`/`BNode` or a plain
     string — strings are coerced to `URIRef`) to pin a stable identity of your
     choice; leave `None` to let the builder mint a blank node and write the
     `BNode` instance here after building."""
 
-    cells: dict[str, Identifier] = Field(default_factory=dict)
+    cells: Annotated[
+        dict[str, Identifier],
+        WithJsonSchema({
+            "type": "object",
+            "additionalProperties": {"type": "string"},
+            "description": "Build-output: cell-wrapper identifiers per field. Don't pre-populate.",
+        }),
+    ] = Field(default_factory=dict)
     """Per-property cell-wrapper identifiers, keyed by the Python field name.
     Populated by the builder. Optional fields appear only if they were emitted.
     List-typed fields appear as a single entry whose identifier wraps the RDF
@@ -225,8 +241,73 @@ class ReportDetails(_AddressableModel):
         "https://rdf.lodgeit.net.au/v1/account_taxonomies#legacy",
         "https://rdf.lodgeit.net.au/v1/account_taxonomies#investments__legacy2",
     ]
-    """URIs of the GL-account taxonomies the calculator should resolve account
-    names against. The defaults give standard chart-of-accounts coverage."""
+    """GL-account taxonomy identifiers. The calculator unions the resulting
+    account trees and looks up every `account` string in transactions, bank
+    statements, action verbs etc. against the union.
+
+    **Bundled identifiers.** Each `https://rdf.lodgeit.net.au/v1/account_taxonomies#<name>`
+    URI is an opaque identifier that the calculator resolves to a bundled XML
+    file at `<deployment_base>/static/default_account_hierarchies/<name>.xml`.
+    The mapping is by trailing fragment — the URI's host/path are conventional
+    and not fetched. Available `<name>` values shipped with the deployment:
+
+    - `legacy` — base hierarchy: Accounts → Net_Assets → {Assets, Liabilities},
+      Comprehensive_Income → {Income, Expenses}, etc. The standard chart of
+      accounts. Most callers want this.
+    - `base` — minimal subset of `legacy`.
+    - `investments`, `investments2`, `investments_simple`, `investments_simple2`,
+      `investments__legacy`, `investments__legacy2` — overlays adding
+      Financial_Investments, Trading_Accounts, etc. The defaults pair `legacy`
+      with `investments__legacy2`. Pick a different overlay (or omit) when
+      the report doesn't involve investment activity.
+    - `livestock` — overlay for the livestock calculator.
+    - `smsf` — overlay for self-managed-super-fund accounting (Member_Equity,
+      distributions, etc.).
+
+    Fetch any of them with a plain HTTP GET to inspect the structure; the
+    schema is `<account name=".." role=".." normal_side="debit|credit">`
+    nested arbitrarily under a single `<accountHierarchy>` root.
+
+    **Custom taxonomies (advanced).** Any entry that isn't a bundled-identifier
+    URI is treated as a URL or local path. The calculator tries to load it as
+    `<accountHierarchy>` XML first; if no such root element is found, it
+    hands the URL to `arelle` and tries to reconstruct an account tree from
+    an XBRL taxonomy schema. Both paths are real and supported but not
+    further surfaced in this SDK yet — open a discussion if you need them.
+
+    **Auto-minted accounts.** The base taxonomies are *not* the whole story.
+    During request processing, `ensure_system_accounts_exist` adds child
+    accounts driven by request data and unit types:
+
+    - **Bank statements**: each `BankStatement.account_name` becomes a child
+      of `Banks` (role `Banks/<account_name>`), plus a paired
+      `Currency_Movement/<account_name>` under `Currency_Movement`. So
+      posting transactions to `Banks` directly works, but the *natural*
+      target is the per-statement child — supplying a `BankStatement` with
+      `account_name="ANZ_Cheque"` creates `Banks/ANZ_Cheque`, and you can
+      post against that name.
+    - **Livestock units**: per `units_type` of livestock, four accounts are
+      added (`<Type>Cogs`, `<Type>Sales`, `<Type>Count`, and a Rations
+      sub-account under Cogs).
+    - **Traded financial units**: per unit appearing in `Transaction.units_type`
+      (and its corresponding `UnitValue`), accounts are added under
+      `Financial_Investments/<exchanged_account>/<unit>` and under each
+      Trading_Accounts realization branch (realized/unrealized ×
+      withCurrencyMovement/onlyCurrencyMovement × unit).
+    - **SMSF distributions**: per distribution unit, sub-accounts for
+      Distribution_Cash, Resolved_Accrual, Foreign_Credit, Franking_Credit,
+      TFN/ABN_Withholding_Tax are added under `Distribution_Revenue/<unit>`.
+    - **Subcategorize_by_bank**: any taxonomy account marked with
+      `accounts:subcategorize_by_bank` gets one child per bank account.
+
+    Action verbs' `exchanged_account` and `trading_account` are *not*
+    auto-minted — they must resolve to an existing account name (or role
+    expression), or transaction processing will error out.
+
+    To see the effective hierarchy a given request produced (taxonomy ∪
+    auto-minted), submit any request and read the `accounts0_json` /
+    `accounts1_json` / `accounts2_json` reports — they list every account
+    with its `name`, `role`, `parent`, and `normal_side`."""
 
 
 class LedgerRequest(_AddressableModel):
@@ -234,6 +315,13 @@ class LedgerRequest(_AddressableModel):
 
     Pass to `robust_sdk2.client.submit` to run, or to
     `robust_sdk2.builder.build_request_rdf` to get the rdflib graph.
+
+    Discovering valid account names: every `account` string elsewhere in this
+    request (bank-statement-transaction debits, journal-line postings, action
+    verbs' `exchanged_account`, etc.) must resolve against the GL-account tree
+    formed by `report_details.account_taxonomies` plus runtime-minted accounts.
+    See the docstring on `ReportDetails.account_taxonomies` for the rules,
+    bundled identifiers, and which accounts get auto-minted from request data.
     """
     report_details: ReportDetails
     bank_statements: list[BankStatement] = []
