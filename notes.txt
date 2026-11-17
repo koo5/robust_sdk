@@ -133,6 +133,21 @@ Open items
   (TBD).
 - v2 namespace dispatcher path (/upload2 with v2/calcs/ic2/...) is gated by an
   unreachable URI; not exposed in sdk2 yet. Revisit when that backend is real.
+- ReportDetails.pricing_method and cost_or_market are plain str, and the builder
+  emits IC[value] for any string. The calculator knows ic:lifo/ic:fifo and
+  ic:market/ic:cost. A bad cost_or_market is rejected up front with "invalid
+  ic:cost_or_market: ..." (process_request_ledger.pl:333; read, not tried). A bad
+  pricing_method (tried "average") fails the job
+  with deterministic_call_failed(preprocess_s_transaction(...)) and no mention of
+  the pricing method. Literal["lifo", "fifo"] / Literal["market", "cost"] would
+  catch it at construction.
+- The calculator's lifo and fifo are swapped (pricing.pl; details in
+  accounts-assessor wiki/docs/developer/Known_issues.md). So the SDK default
+  "lifo" gets FIFO lot matching. examples/ledger_01_bare_minimum.py shows it.
+- client.submit sends request_format as a multipart form field, but /upload only
+  reads it from the query string, so it's ignored and the endpoint default
+  ("rdf") applies. Harmless while the SDK only sends rdf. To make it count, pass
+  it as params=.
 
 Next steps (post-promotion-to-koo5/robust_sdk master)
 =====================================================
