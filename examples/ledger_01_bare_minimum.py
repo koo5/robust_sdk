@@ -9,7 +9,7 @@ One investment, ACME, in an AUD report, over the 2023-24 financial year:
 What the request has to declare, and why:
 
 - `ReportDetails`: the period and the report currency. Everything else on
-  it has defaults (market valuation, lifo, the legacy + investments account
+  it has defaults (market valuation, fifo, the legacy + investments account
   taxonomies, which provide `FinancialInvestments` and `InvestmentIncome`).
 - One `BankStatement`: the calculator takes transactions from bank
   statements (or GL inputs). The account starts at zero and nothing pays
@@ -25,8 +25,11 @@ What the request has to declare, and why:
   fails with an alert.
 
 The sale has to be matched against one of the two purchases, and which one
-is set by `ReportDetails.pricing_method` (default "lifo"). The script prints
-the investment report's lots so you can see which purchase was sold.
+is set by `ReportDetails.pricing_method`: "fifo" (the default) sells the
+oldest lot, the one bought at 100, so the sale realizes 200; "lifo" sells
+the newest, bought at 300, so it realizes 0 and the 100 lot keeps an
+unrealized gain of 200. The script prints the investment report's lots so
+you can see which purchase was sold.
 
 Configuration via environment (same as the other examples):
 

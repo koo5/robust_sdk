@@ -235,8 +235,9 @@ class ReportDetails(_AddressableModel):
     the report's reference currency. Determines the default for `UnitValue.currency`."""
     cost_or_market: str = "market"
     """One of "market", "cost". Selects the asset valuation basis."""
-    pricing_method: str = "lifo"
-    """One of "lifo", "fifo". Inventory accounting method."""
+    pricing_method: str = "fifo"
+    """One of "fifo" (a sale takes the oldest lot first), "lifo" (the newest first).
+    Inventory accounting method."""
     account_taxonomies: list[str] = [
         "https://rdf.lodgeit.net.au/v1/account_taxonomies#legacy",
         "https://rdf.lodgeit.net.au/v1/account_taxonomies#investments__legacy2",

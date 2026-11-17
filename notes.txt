@@ -30,7 +30,9 @@ ReportDetails:
   IC.currency → Literal(currency code)
   IC['from'] → date Literal
   IC['to'] → date Literal
-  IC.pricing_method → IC.fifo     (constant in xml2rdf; configurable here)
+  IC.pricing_method → IC.fifo     (default here; configurable. xml2rdf's constant was
+                                   IC.lifo, which did FIFO lot matching until the
+                                   calculator's lifo/fifo swap was fixed, see below)
   IC_UI.account_taxonomies → RDF list of taxonomy URIs
 
 BankStatement:
@@ -142,9 +144,13 @@ Open items
   with deterministic_call_failed(preprocess_s_transaction(...)) and no mention of
   the pricing method. Literal["lifo", "fifo"] / Literal["market", "cost"] would
   catch it at construction.
-- The calculator's lifo and fifo are swapped (pricing.pl; details in
-  accounts-assessor wiki/docs/developer/Known_issues.md). So the SDK default
-  "lifo" gets FIFO lot matching. examples/ledger_01_bare_minimum.py shows it.
+- The calculator had lifo and fifo swapped (pricing.pl) until accounts-assessor
+  ab56f759 (2026-11-17): ic:lifo did FIFO lot matching and ic:fifo LIFO. Now each
+  does what it says, and the calculator's default (no ic:pricing_method) is ic:fifo.
+  The default here went from "lifo" to "fifo" with it, so requests that don't
+  choose keep the FIFO matching they had. A request that says "lifo" now gets
+  LIFO. examples/ledger_01_bare_minimum.py shows the difference. Details in
+  accounts-assessor wiki/docs/developer/Known_issues.md.
 - client.submit sends request_format as a multipart form field, but /upload only
   reads it from the query string, so it's ignored and the endpoint default
   ("rdf") applies. Harmless while the SDK only sends rdf. To make it count, pass
