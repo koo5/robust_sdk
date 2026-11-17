@@ -14,6 +14,7 @@ The legacy SDK's xml2rdf.py is consumed by manager_actors.preprocess_request_fil
 to handle /upload's request_format=xml path. We don't want to disturb that until
 the new code is verified by the endpoint test runner. sdk2 lives alongside; once
 parity is proven, callers migrate over.
+- note: it's migrated now, but the endpoint test suite is not yet run against it.
 
 Predicate map (sdk2 model → RDF triple) — derived from xml2rdf.py
 =================================================================
@@ -29,7 +30,7 @@ ReportDetails:
   IC.currency → Literal(currency code)
   IC['from'] → date Literal
   IC['to'] → date Literal
-  IC.pricing_method → IC.lifo     (constant in xml2rdf; configurable here)
+  IC.pricing_method → IC.fifo     (constant in xml2rdf; configurable here)
   IC_UI.account_taxonomies → RDF list of taxonomy URIs
 
 BankStatement:
