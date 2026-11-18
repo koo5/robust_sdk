@@ -11,13 +11,14 @@ from .domain import (
     UnitType,
     UnitValue,
 )
-from .balance_sheet_xml import parse_balance_sheet_xml
+from .balance_sheet_xml import BalanceSheetXmlError, parse_balance_sheet_xml
 from .builder import build_request_rdf
 from .client import JobHandle, submit
 from .default_action_verbs import default_action_verbs
 
 __all__ = [
     "ActionVerb",
+    "BalanceSheetXmlError",
     "BankStatement",
     "GlInput",
     "JobHandle",

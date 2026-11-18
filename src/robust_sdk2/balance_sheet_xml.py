@@ -38,6 +38,19 @@ from .domain import (
 )
 
 
+class BalanceSheetXmlError(ValueError):
+    """The balance-sheet XML can't be translated faithfully: a value the
+    adapter can't take, or an element it has no model for. The message names
+    the element and is meant for whoever sent the input."""
+
+
+# Request-level elements that change what the calculator computes, but that
+# this adapter has no model for. A non-empty one raises rather than being
+# dropped. (Pure metadata such as <generator>, <company> or a statement's
+# <title> and <period> is still ignored.)
+_UNSUPPORTED_ELEMENTS = ("livestockData", "accountHierarchy")
+
+
 def parse_balance_sheet_xml(
     xml_path: Path,
     *,
@@ -60,11 +73,22 @@ def parse_balance_sheet_xml(
     corresponding `ActionVerb` fields (`gst_rate_percent`,
     `gst_receivable_account`, `gst_payable_account`); the calculator picks
     them up per-verb to drive the GST split.
+
+    `<costOrMarket>` ("cost" or "market") sets `ReportDetails.cost_or_market`;
+    without it, the model's default ("market") applies.
+
+    Raises `BalanceSheetXmlError` when the input can't be translated
+    faithfully: a `<costOrMarket>` that is neither "cost" nor "market", or a
+    non-empty element this adapter has no model for (`<livestockData>`,
+    `<accountHierarchy>`). Dropping those would compute something other than
+    what the input asks for, without saying so.
     """
     root = ET.parse(xml_path).getroot()
     req_el = root.find("balanceSheetRequest")
     if req_el is None:
         return None
+
+    _reject_unsupported(req_el)
 
     start_date = _parse_date(req_el.findtext("startDate"))
     end_date = _parse_date(req_el.findtext("endDate"))
@@ -74,12 +98,17 @@ def parse_balance_sheet_xml(
     if not action_verbs and fallback_action_verbs is not None:
         action_verbs = fallback_action_verbs
 
+    report_details = dict(
+        start_date=start_date,
+        end_date=end_date,
+        report_currency=report_currency,
+    )
+    cost_or_market = _cost_or_market(req_el)
+    if cost_or_market is not None:
+        report_details["cost_or_market"] = cost_or_market
+
     return LedgerRequest(
-        report_details=ReportDetails(
-            start_date=start_date,
-            end_date=end_date,
-            report_currency=report_currency,
-        ),
+        report_details=ReportDetails(**report_details),
         bank_statements=_bank_statements(req_el, default_currency=report_currency),
         unit_values=_unit_values(
             req_el,
@@ -185,6 +214,33 @@ def _action_verbs(req_el: ET.Element) -> list[ActionVerb]:
             )
         )
     return out
+
+
+def _reject_unsupported(req_el: ET.Element) -> None:
+    for tag in _UNSUPPORTED_ELEMENTS:
+        for el in req_el.findall(tag):
+            if len(el) or (el.text or "").strip():
+                raise BalanceSheetXmlError(
+                    f"<{tag}> is not supported by robust_sdk2's balance-sheet XML "
+                    f"adapter; the request can't be computed without it"
+                )
+
+
+def _cost_or_market(req_el: ET.Element) -> Optional[str]:
+    """`<costOrMarket>`'s value, or None when it's absent or empty."""
+    els = req_el.findall("costOrMarket")
+    if len(els) > 1:
+        raise BalanceSheetXmlError("more than one <costOrMarket>")
+    if not els:
+        return None
+    value = (els[0].text or "").strip()
+    if value == "":
+        return None
+    if value not in ("cost", "market"):
+        raise BalanceSheetXmlError(
+            f'<costOrMarket> must be "cost" or "market", not {value!r}'
+        )
+    return value
 
 
 # --- small helpers --------------------------------------------------------
