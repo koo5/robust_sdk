@@ -73,6 +73,17 @@ def test_wait_returns_on_failure(monkeypatch):
     assert final["status"] == "Failure"
 
 
+def test_wait_returns_on_warning_with_validation_alerts(monkeypatch):
+    result = {"alerts": ["A required worksheet is missing."], "reports": []}
+    job = _handle(monkeypatch, [
+        {"status": "Started"},
+        {"status": "Warning", "result": result},
+    ])
+    final = job.wait(timeout=10, interval=0)
+    assert final["status"] == "Warning"
+    assert final["result"] == result
+
+
 def test_wait_returns_on_skipped(monkeypatch):
     job = _handle(monkeypatch, [{"status": "Skipped"}])
     final = job.wait(timeout=10, interval=0)

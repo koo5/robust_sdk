@@ -13,8 +13,8 @@ from .domain import LedgerRequest
 # Auth accepted as either a (user, password) tuple or a "user:password" string.
 Auth = Union[tuple[str, str], str, None]
 
-# Statuses remoulade reports as "the job is finished, in any way".
-TERMINAL_STATUSES = ("Success", "Failure", "Skipped")
+# Statuses the public job API reports when processing has finished.
+TERMINAL_STATUSES = ("Success", "Warning", "Failure", "Skipped")
 
 
 def _normalize_auth(auth: Auth) -> Optional[tuple[str, str]]:
@@ -86,7 +86,8 @@ class JobHandle:
         """Block until the job reaches a terminal status and return the final state.
 
         Polls every `interval` seconds. Terminal statuses are
-        `Success`, `Failure`, `Skipped` (per remoulade convention). Raises
+        `Success`, `Warning`, `Failure`, `Skipped`. `Warning` includes a result
+        with alerts for the caller to review. Raises
         `TimeoutError` if `timeout` seconds elapse without one of those.
 
         `on_progress`, if given, is called after every poll with

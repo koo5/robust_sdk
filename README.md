@@ -70,6 +70,12 @@ print(job.view_url)
 print(job.poll())
 ```
 
+`job.wait()` returns when the job is finished, including `Warning` results.
+`Success` means the result has no alerts; `Warning` means alerts require review
+and may explain an incomplete calculation or invalid input. Read `result.alerts`
+and the linked reports. `Failure` exposes a generic internal-server-error
+diagnostic. A warning is not retried automatically.
+
 ## Adapting your own data
 
 The recommended way to use the SDK is to write a small adapter that reads
